@@ -24,7 +24,7 @@ var _jsSrcDir = '../../Breeze.js/src/'
 var _jsBuildDir = '../../Breeze.js/build/';
 var _nugetDir = '../Nuget.builds/'
 // var _msBuildCmd = 'C:/Windows/Microsoft.NET/Framework/v4.0.30319/MSBuild.exe ';
-var _msBuildCmd = '"C:/Program Files (x86)/MSBuild/12.0/Bin/MsBuild.exe" '; // vs 2013 version of MsBuild
+var _msBuildCmd = '"C:/Program Files (x86)/MSBuild/14.0/Bin/MsBuild.exe" '; // vs 2015 version of MsBuild
 var _msBuildOptions = ' /p:Configuration=Release /verbosity:minimal ';
 
 var _versionNum = getBreezeVersion();
@@ -109,13 +109,28 @@ gulp.task('nugetPack', ['copyBreezeJs', 'copyDlls', 'nugetClean'], function(done
   }, done);
 });
 
-gulp.task('nugetTestDeploy', ['nugetPack'], function() {
+// gulp.task('nugetTestDeploy', ['nugetPack'], function() {
+//   var src = _nugetDir + '**/*.nupkg';
+//   var dest = process.env.LOCALAPPDATA + '/Nuget/Cache'
+//   return gulp.src(src)
+//       .pipe(flatten())
+//       .pipe(gulp.dest(dest));
+// });
+
+// Deploy to nuget on local machine - NuGet 3.3+
+gulp.task('nugetTestDeploy', ['nugetPack'], function(done) {
+  gutil.log('Deploying Nugets...');
   var src = _nugetDir + '**/*.nupkg';
-  var dest = process.env.LOCALAPPDATA + '/Nuget/Cache'
-  return gulp.src(src)
-      .pipe(flatten())
-      .pipe(gulp.dest(dest));
+  var dest = process.env.LOCALAPPDATA + '/Nuget/Test';
+  var fileNames = glob.sync( src);
+  async.each(fileNames, function (fileName, cb) {
+    gutil.log('Deploying nuspec file: ' + fileName);
+    var cmd = 'nuget add ' + fileName + ' -Source ' + dest;
+    execCommands([cmd], null, cb);
+  }, done);
 });
+
+
 
 // should ONLY be called manually after testing locally installed nugets from nugetPack step.
 // deliberately does NOT have a dependency on nugetPack
@@ -125,10 +140,20 @@ gulp.task('nugetDeploy', function(done) {
   var fileNames = glob.sync( src);
   async.each(fileNames, function (fileName, cb) {
     gutil.log('Deploying nuspec file: ' + fileName);
-    var cmd = 'nuget push ' + fileName;
+    var cmd = 'nuget push ' + fileName + ' -Source https://www.nuget.org';
     execCommands([ cmd], null, cb);
   }, done);
+});
 
+gulp.task('nugetDeployClient', function(done) {
+  gutil.log('Deploying Nugets...');
+  var src = _nugetDir + '**/Breeze.Client.*.nupkg';
+  var fileNames = glob.sync( src);
+  async.each(fileNames, function (fileName, cb) {
+    gutil.log('Deploying nuspec file: ' + fileName);
+    var cmd = 'nuget push ' + fileName + ' -Source https://www.nuget.org';
+    execCommands([ cmd], null, cb);
+  }, done);
 });
 
 gulp.task('default', ['nugetTestDeploy'] , function() {
@@ -173,8 +198,9 @@ function msBuildSolution(solutionFileName, done) {
   }
   var baseName = path.basename(solutionFileName);
   var rootCmd = _msBuildCmd + '"' + baseName +'"' + _msBuildOptions + ' /t:'
+  var nuGetRestoreCmd = 'nuget.exe restore '  + '"' + baseName +'"';
 
-  var cmds = [rootCmd + 'Clean', rootCmd + 'Rebuild'];
+  var cmds = [nuGetRestoreCmd, rootCmd + 'Clean', rootCmd + 'Rebuild'];
   var cwd = path.dirname(solutionFileName);
   execCommands(cmds, { cwd: cwd},  done);
 }

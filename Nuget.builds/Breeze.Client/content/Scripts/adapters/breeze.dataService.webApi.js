@@ -2,11 +2,11 @@
   if (typeof breeze === "object") {
     factory(breeze);
   } else if (typeof require === "function" && typeof exports === "object" && typeof module === "object") {
-    // CommonJS or Node: hard-coded dependency on "breeze"
+    // CommonJS or Node: hard-coded dependency on "breeze-client"
     factory(require("breeze-client"));
   } else if (typeof define === "function" && define["amd"]) {
-    // AMD anonymous module with hard-coded dependency on "breeze"
-    define(["breeze"], factory);
+    // AMD anonymous module with hard-coded dependency on "breeze-client"
+    define(["breeze-client"], factory);
   }
 }(function (breeze) {
   "use strict";
@@ -55,22 +55,33 @@
   };
 
   proto._prepareSaveResult = function (saveContext, data) {
-    // if lower case then all properties are already in there 'correct' case
-    // and the entityType name is already a client side name.
-    if (data.entities) {
-      // data: { entities: array of entities, keyMappings array of keyMappings
-      //   where: keyMapping: { entityTypeName: ..., tempValue: ..., realValue ... }
-      return data;
-    } else {
-      // else if coming from .NET
+    // use the jsonResultAdapter to extractResults and extractKeyMappings
+    var jra = saveContext.dataService.jsonResultsAdapter || this.jsonResultsAdapter;
+    var entities = jra.extractSaveResults(data) || [];
+    var keyMappings = jra.extractKeyMappings(data) || [];
+    var deletedKeys = jra.extractDeletedKeys ? (jra.extractDeletedKeys(data)) || [] : [];
+
+    if (keyMappings.length) {
       // HACK: need to change the 'case' of properties in the saveResult
       // but KeyMapping properties internally are still ucase. ugh...
-      var keyMappings = data.KeyMappings.map(function (km) {
+      keyMappings = keyMappings.map(function (km) {
+        if (km.entityTypeName) return km; // it's already lower case
+
         var entityTypeName = MetadataStore.normalizeTypeName(km.EntityTypeName);
         return { entityTypeName: entityTypeName, tempValue: km.TempValue, realValue: km.RealValue };
       });
-      return { entities: data.Entities, keyMappings: keyMappings };
     }
+
+    if (deletedKeys.length) {
+      deletedKeys = deletedKeys.map(function(dk) {
+        if (dk.entityTypeName) return dk; // it's already lower case
+        var entityTypeName = MetadataStore.normalizeTypeName(dk.EntityTypeName);
+        // NOTE the dk.KeyValue => keyValues transition - needed because we are deserializing an .NET EntityKey
+        return { entityTypeName: entityTypeName, keyValues: dk.KeyValue }; 
+      });
+    }
+    
+    return { entities: entities, keyMappings: keyMappings, deletedKeys: deletedKeys };
   };
 
   proto.jsonResultsAdapter = new JsonResultsAdapter({

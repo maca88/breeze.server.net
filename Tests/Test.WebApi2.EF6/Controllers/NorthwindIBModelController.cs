@@ -8,6 +8,7 @@ using System;
 using System.Net;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Reflection;
 using System.Web.Http;
 
 using Breeze.ContextProvider;
@@ -195,16 +196,11 @@ namespace Sample_WebApi2.Controllers {
       return saveMap;
     }
 
-
     private Dictionary<Type, List<EntityInfo>> AddOrder(Dictionary<Type, List<EntityInfo>> saveMap) {
       var order = new Order();
       order.OrderDate = DateTime.Today;
       var ei = ContextProvider.CreateEntityInfo(order);
-      List<EntityInfo> orderInfos;
-      if (!saveMap.TryGetValue(typeof(Order), out orderInfos)) {
-        orderInfos = new List<EntityInfo>();
-        saveMap.Add(typeof(Order), orderInfos);
-      }
+      List<EntityInfo> orderInfos = ContextProvider.GetEntityInfos(saveMap, typeof(Order));
       orderInfos.Add(ei);
 
       return saveMap;
@@ -244,11 +240,7 @@ namespace Sample_WebApi2.Controllers {
       comment.CreatedOn = DateTime.Now;
       comment.SeqNum = 1;
       var ei = ContextProvider.CreateEntityInfo(comment);
-      List<EntityInfo> commentInfos;
-      if (!saveMap.TryGetValue(typeof(Comment), out commentInfos)) {
-        commentInfos = new List<EntityInfo>();
-        saveMap.Add(typeof(Comment), commentInfos);
-      }
+      List<EntityInfo> commentInfos = ContextProvider.GetEntityInfos(saveMap, typeof(Comment));
       commentInfos.Add(ei);
 
       return saveMap;
@@ -793,8 +785,38 @@ namespace Sample_WebApi2.Controllers {
         LookupEmployeeInSeparateContext(false);
       } else if (tag == "LookupEmployeeInSeparateContext.SameConnection.After") {
         LookupEmployeeInSeparateContext(true);
+      } else if (tag == "deleteProductOnServer") {
+        var t = typeof(Product);
+        var prodinfo = saveMap[t].First();
+        prodinfo.EntityState = EntityState.Deleted;
+      } else if (tag != null && tag.StartsWith("deleteProductOnServer:")) {
+        // create new EntityInfo for entity that we want to delete that was not in the save bundle
+        var id = tag.Substring(tag.IndexOf(':') + 1);
+        var product = new Product();
+        product.ProductID = int.Parse(id);
+        var infos = GetEntityInfos(saveMap, typeof(Product));
+        var info = CreateEntityInfo(product, EntityState.Deleted);
+        infos.Add(info);
+      } else if (tag == "deleteSupplierAndProductOnServer") {
+        // mark deleted entities that are in the save bundle
+        var t = typeof(Product);
+        var infos = GetEntityInfos(saveMap, typeof(Product));
+        var prodinfo = infos.FirstOrDefault();
+        if (prodinfo != null) prodinfo.EntityState = EntityState.Deleted;
+        infos = GetEntityInfos(saveMap, typeof(Supplier));
+        var supinfo = infos.FirstOrDefault();
+        if (supinfo != null) supinfo.EntityState = EntityState.Deleted;
       }
       base.AfterSaveEntities(saveMap, keyMappings);
+    }
+
+    public List<EntityInfo> GetEntityInfos(Dictionary<Type, List<EntityInfo>> saveMap, Type t) {
+      List<EntityInfo> entityInfos;
+      if (!saveMap.TryGetValue(t, out entityInfos)) {
+        entityInfos = new List<EntityInfo>();
+        saveMap.Add(t, entityInfos);
+      }
+      return entityInfos;
     }
 
     public Dictionary<Type, List<EntityInfo>> GetSaveMapFromSaveBundle(JObject saveBundle) {
@@ -808,7 +830,7 @@ namespace Sample_WebApi2.Controllers {
     public void SetCurrentTransaction(System.Data.Common.DbCommand command) {
       if (EntityTransaction != null) {
         // get private member via reflection
-        var bindingFlags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance;
+        var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
         var etype = EntityTransaction.GetType();
         var stProp = etype.GetProperty("StoreTransaction", bindingFlags);
         var transaction = stProp.GetValue(EntityTransaction, null);
@@ -988,8 +1010,29 @@ namespace Sample_WebApi2.Controllers {
             saveMap[type].Add(enInfo);
           }
         }
+      } else if (tag == "deleteProductOnServer.Before") {
+        var prodinfo = saveMap[typeof(Product)].First();
+        if (prodinfo.EntityState == EntityState.Added) {
+          // because Deleted throws error when trying delete non-existent row from database
+          prodinfo.EntityState = EntityState.Detached; 
+        } else {
+          prodinfo.EntityState = EntityState.Deleted;
+        }
+      } else if (tag == "deleteSupplierOnServer.Before") {
+        var product = (Product)saveMap[typeof(Product)].First().Entity;
+        var infos = GetEntityInfos(saveMap, typeof(Supplier));
+        var supinfo = infos.FirstOrDefault();
+        if (supinfo != null) {
+          supinfo.EntityState = EntityState.Deleted;
+        } else {
+          // create new EntityInfo for entity that we want to delete that was not in the save bundle
+          var supplier = new Supplier();
+          supplier.Location = new Location();
+          supplier.SupplierID = product.SupplierID.GetValueOrDefault();
+          supinfo = CreateEntityInfo(supplier, EntityState.Deleted);
+          infos.Add(supinfo);
+        }
       }
-
 #if DATABASEFIRST_OLD
       DataAnnotationsValidator.AddDescriptor(typeof(Customer), typeof(CustomerMetaData));
       var validator = new DataAnnotationsValidator(this);

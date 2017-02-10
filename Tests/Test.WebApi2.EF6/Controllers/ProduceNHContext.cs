@@ -5,7 +5,7 @@ namespace Sample_WebApi2.Controllers {
 
   public class ProduceNHContext : NHContext {
 
-        public ProduceNHContext() : base(ProduceNHConfig.OpenSession()) { }
+        public ProduceNHContext() : base(ProduceNHConfig.OpenSession(), new BreezeConfigurator()) { }
 
         public ProduceNHContext(NHContext sourceContext) : base(sourceContext) { }
 

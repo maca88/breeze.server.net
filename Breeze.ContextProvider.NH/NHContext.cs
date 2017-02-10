@@ -4,16 +4,24 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using NHibernate;
 using NHibernate.Cfg;
+using NHibernate.Intercept;
 using NHibernate.Metadata;
+using NHibernate.Proxy;
+using NHibernate.Proxy.DynamicProxy;
 using NHibernate.Type;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Threading.Tasks;
+using System.Transactions;
+using Newtonsoft.Json.Linq;
+using NHibernate.Util;
 
 namespace Breeze.ContextProvider.NH {
   public class NHContext : Breeze.ContextProvider.ContextProvider, IDisposable {
     private ISession session;
+    private IBreezeConfigurator breezeConfigurator;
     //protected Configuration configuration;
     private static Dictionary<ISessionFactory, Metadata> _factoryMetadata = new Dictionary<ISessionFactory, Metadata>();
     private static object _metadataLock = new object();
@@ -23,17 +31,10 @@ namespace Breeze.ContextProvider.NH {
     /// Each thread should have its own NHContext and Session.
     /// </summary>
     /// <param name="session">Used for queries and updates</param>
-    /// <param name="configuration">Used for metadata generation</param>
-    public NHContext(ISession session) {
+    /// <param name="breezeConfigurator">Used for get configurations</param>
+    public NHContext(ISession session, IBreezeConfigurator breezeConfigurator) {
       this.session = session;
-      //this.configuration = configuration;
-    }
-
-    [Obsolete("Configuration parameter is no longer used by NHContext")]
-    public NHContext(ISession session, Configuration configuration)
-    {
-        this.session = session;
-        //this.configuration = configuration;
+      this.breezeConfigurator = breezeConfigurator;
     }
 
     /// <summary>
@@ -68,18 +69,66 @@ namespace Breeze.ContextProvider.NH {
     public NhQueryableInclude<T> GetQuery<T>(string cacheRegion) {
       return new NhQueryableInclude<T>(session.GetSessionImplementation(), cacheRegion);
     }
+
+    public async Task<SaveResult> SaveChangesAsync(JObject saveBundle, TransactionSettings transactionSettings = null) {
+
+      if (SaveWorkState == null || SaveWorkState.WasUsed) {
+        InitializeSaveState(saveBundle);
+      }
+
+      transactionSettings = transactionSettings ?? BreezeConfig.Instance.GetTransactionSettings();
+      try {
+        if (transactionSettings.TransactionType == TransactionType.TransactionScope) {
+          var txOptions = transactionSettings.ToTransactionOptions();
+          using (var txScope = new TransactionScope(TransactionScopeOption.Required, txOptions)) {
+            await OpenAndSaveAsync(SaveWorkState);
+            txScope.Complete();
+          }
+        } else if (transactionSettings.TransactionType == TransactionType.DbTransaction) {
+          this.OpenDbConnection();
+          using (IDbTransaction tran = BeginTransaction(transactionSettings.IsolationLevelAs)) {
+            try {
+              await OpenAndSaveAsync(SaveWorkState);
+              await session.Transaction.CommitAsync();
+            } catch {
+              session.Transaction.Rollback();
+              throw;
+            }
+          }          
+        } else {
+          await OpenAndSaveAsync(SaveWorkState);
+        }
+      } catch (EntityErrorsException e) {
+        SaveWorkState.EntityErrors = e.EntityErrors;
+        throw; 
+      } catch(Exception e2) {
+        if (!HandleSaveException(e2, SaveWorkState)) {
+          throw;
+        }
+      } finally {
+        CloseDbConnection();
+      }
+
+      return SaveWorkState.ToSaveResult();
+    }
+
+    private async Task OpenAndSaveAsync(SaveWorkState saveWorkState) {
+      saveWorkState.BeforeSave();
+      await SaveChangesCoreAsync(saveWorkState);
+      saveWorkState.AfterSave();
+    }
     
     /// <summary>
     /// Close the session
     /// </summary>
-    public void Close() {
+    public virtual void Close() {
       if (session != null && session.IsOpen) session.Close();
     }
 
     /// <summary>
     /// Close the session
     /// </summary>
-    public void Dispose()
+    public virtual void Dispose()
     {
       Close();
     }
@@ -114,7 +163,8 @@ namespace Breeze.ContextProvider.NH {
     }
 
     public object[] GetKeyValues(object entity) {
-      var classMeta = session.SessionFactory.GetClassMetadata(entity.GetType());
+      var entityType = GetProxyRealType(entity);
+      var classMeta = session.SessionFactory.GetClassMetadata(entityType);
       if (classMeta == null) {
         throw new ArgumentException("Metadata not found for type " + entity.GetType());
       }
@@ -134,6 +184,30 @@ namespace Breeze.ContextProvider.NH {
     {
         return entitiesToPersist;
     }
+
+    public virtual Task<List<EntityInfo>> BeforeSaveEntityGraphAsync(List<EntityInfo> entitiesToPersist)
+    {
+        return Task.FromResult(entitiesToPersist);
+    }
+
+    protected virtual void BeforeFlush(List<EntityInfo> entitiesToPersist)
+    {
+    }
+
+    protected virtual Task BeforeFlushAsync(List<EntityInfo> entitiesToPersist)
+    {
+        return TaskHelper.CompletedTask;
+    }
+
+    protected virtual void AfterFlush(List<EntityInfo> entitiesToPersist)
+    {
+    }
+
+    protected virtual Task AfterFlushAsync(List<EntityInfo> entitiesToPersist)
+    {
+        return TaskHelper.CompletedTask;
+    }
+
 
     /// <summary>
     /// If TypeFilter function is defined, returns TypeFilter(entityInfo.Entity.GetType())
@@ -184,7 +258,7 @@ namespace Breeze.ContextProvider.NH {
           lock (_metadataLock) {
               if (!_factoryMetadata.TryGetValue(session.SessionFactory, out _metadata)) {
                   //var builder = new NHBreezeMetadata(session.SessionFactory, configuration);
-                  var builder = new NHMetadataBuilder(session.SessionFactory);
+                  var builder = new NHMetadataBuilder(session.SessionFactory, breezeConfigurator);
                   _metadata = builder.BuildMetadata(TypeFilter);
                   _factoryMetadata.Add(session.SessionFactory, _metadata);
               }
@@ -209,6 +283,7 @@ namespace Breeze.ContextProvider.NH {
     /// <param name="saveMap">Map of Type -> List of entities of that type</param>
     protected override void SaveChangesCore(SaveWorkState saveWorkState) {
       var saveMap = saveWorkState.SaveMap;
+      var flushMode = session.FlushMode;
       session.FlushMode = FlushMode.Never;
       var tx = session.Transaction;
       var hasExistingTransaction = tx.IsActive;
@@ -219,11 +294,13 @@ namespace Breeze.ContextProvider.NH {
         var saveOrder = fixer.FixupRelationships();
           
         // Allow subclass to process entities before we save them
+        AddKeyMappings(saveOrder);
         saveOrder = BeforeSaveEntityGraph(saveOrder);
-
         ProcessSaves(saveOrder);
-          
+        BeforeFlush(saveOrder);
         session.Flush();
+        session.FlushMode = flushMode;
+        AfterFlush(saveOrder);
         RefreshFromSession(saveMap);
         if (!hasExistingTransaction) tx.Commit();
         fixer.RemoveRelationships();
@@ -250,6 +327,52 @@ namespace Breeze.ContextProvider.NH {
       saveWorkState.KeyMappings = UpdateAutoGeneratedKeys(saveWorkState.EntitiesWithAutoGeneratedKeys);
     }
 
+    protected virtual async Task SaveChangesCoreAsync(SaveWorkState saveWorkState) {
+      var saveMap = saveWorkState.SaveMap;
+      var flushMode = session.FlushMode;
+      session.FlushMode = FlushMode.Never;
+      var tx = session.Transaction;
+      var hasExistingTransaction = tx.IsActive;
+      if (!hasExistingTransaction) tx.Begin(BreezeConfig.Instance.GetTransactionSettings().IsolationLevelAs);
+      try {
+        // Relate entities in the saveMap to other NH entities, so NH can save the FK values.
+        var fixer = GetRelationshipFixer(saveMap);
+        var saveOrder = fixer.FixupRelationships();
+        // Allow subclass to process entities before we save them
+        AddKeyMappings(saveOrder);
+        saveOrder = await BeforeSaveEntityGraphAsync(saveOrder);
+        await ProcessSavesAsync(saveOrder);
+        await BeforeFlushAsync(saveOrder);
+        await session.FlushAsync();
+        session.FlushMode = flushMode;
+        await AfterFlushAsync(saveOrder);
+        await RefreshFromSessionAsync(saveMap);
+        if (!hasExistingTransaction) await tx.CommitAsync();
+        fixer.RemoveRelationships();
+      }
+      catch (PropertyValueException pve)
+      {
+        // NHibernate can throw this
+        if (!hasExistingTransaction) tx.Rollback();
+        entityErrors.Add(new EntityError() {
+            EntityTypeName = pve.EntityName,
+            ErrorMessage = pve.Message,
+            ErrorName = "PropertyValueException",
+            KeyValues = null,
+            PropertyName = pve.PropertyName
+        });
+        saveWorkState.EntityErrors = entityErrors;
+      } catch (Exception) {
+        if (!hasExistingTransaction) tx.Rollback();
+        throw;
+      } finally {
+        session.FlushMode = flushMode;
+        if (!hasExistingTransaction) tx.Dispose();
+      }
+
+      saveWorkState.KeyMappings = UpdateAutoGeneratedKeys(saveWorkState.EntitiesWithAutoGeneratedKeys);
+    }
+
     /// <summary>
     /// Get a new NHRelationshipFixer using the saveMap and the foreign-key map from the metadata.
     /// </summary>
@@ -258,7 +381,20 @@ namespace Breeze.ContextProvider.NH {
     protected NHRelationshipFixer GetRelationshipFixer(Dictionary<Type, List<EntityInfo>> saveMap) {
         // Get the map of foreign key relationships from the metadata
         var fkMap = GetMetadata().ForeignKeyMap;
-        return new NHRelationshipFixer(saveMap, fkMap, session);
+        return new NHRelationshipFixer(saveMap, fkMap, session, breezeConfigurator);
+    }
+
+    /// <summary>
+    /// Add key mappings for entities in the saveOrder.
+    /// </summary>
+    /// <param name="saveOrder"></param>
+    protected void AddKeyMappings(List<EntityInfo> saveOrder) {
+        var sessionFactory = session.SessionFactory;
+        foreach (var entityInfo in saveOrder) {
+            var entityType = GetProxyRealType(entityInfo.Entity);
+            var classMeta = sessionFactory.GetClassMetadata(entityType);
+            AddKeyMapping(entityInfo, entityType, classMeta);
+        }
     }
 
     /// <summary>
@@ -270,14 +406,35 @@ namespace Breeze.ContextProvider.NH {
       var sessionFactory = session.SessionFactory;
       foreach (var entityInfo in saveOrder)
       {
-          var entityType = entityInfo.Entity.GetType();
+          var entityType = GetProxyRealType(entityInfo.Entity);
           var classMeta = sessionFactory.GetClassMetadata(entityType);
-          AddKeyMapping(entityInfo, entityType, classMeta);
           ProcessEntity(entityInfo, classMeta);
       }
     }
 
-
+    /// <summary>
+    /// Persist the changes to the entities in the saveOrder.
+    /// </summary>
+    /// <param name="saveOrder"></param>
+    protected async Task ProcessSavesAsync(List<EntityInfo> saveOrder) {
+      
+      var sessionFactory = session.SessionFactory;
+      //Added two iterations as ProcessEntity can save multiple items at once
+      foreach (var entityInfo in saveOrder)
+      {
+          var entityType = GetProxyRealType(entityInfo.Entity);
+          var classMeta = sessionFactory.GetClassMetadata(entityType);
+          AddKeyMapping(entityInfo, entityType, classMeta);
+          
+      }
+      foreach (var entityInfo in saveOrder)
+      {
+          var entityType = GetProxyRealType(entityInfo.Entity);
+          var classMeta = sessionFactory.GetClassMetadata(entityType);
+          await ProcessEntityAsync(entityInfo, classMeta);
+      }
+    }
+    
     /// <summary>
     /// Add, update, or delete the entity according to its EntityState.
     /// </summary>
@@ -298,6 +455,32 @@ namespace Breeze.ContextProvider.NH {
         session.Save(entity);
       } else if (state == EntityState.Deleted) {
         session.Delete(entity);
+      } else {
+        // Ignore EntityState.Unchanged.  Too many problems using session.Lock or session.Merge
+        //session.Lock(entity, LockMode.None);
+      }
+    }
+
+    /// <summary>
+    /// Add, update, or delete the entity according to its EntityState.
+    /// </summary>
+    /// <param name="entityInfo"></param>
+    protected async Task ProcessEntityAsync(EntityInfo entityInfo, IClassMetadata classMeta) {
+      var entity = entityInfo.Entity;
+      var state = entityInfo.EntityState;
+
+      // Restore the old value of the concurrency column so Hibernate will be able to save the entity
+      if (classMeta.IsVersioned) {
+        RestoreOldVersionValue(entityInfo, classMeta);
+      }
+
+      if (state == EntityState.Modified) {
+        CheckForKeyUpdate(entityInfo, classMeta);
+        await session.UpdateAsync(entity);
+      } else if (state == EntityState.Added) {
+        await session.SaveAsync(entity);
+      } else if (state == EntityState.Deleted) {
+        await session.DeleteAsync(entity);
       } else {
         // Ignore EntityState.Unchanged.  Too many problems using session.Lock or session.Merge
         //session.Lock(entity, LockMode.None);
@@ -358,7 +541,7 @@ namespace Breeze.ContextProvider.NH {
     /// <param name="meta"></param>
     /// <returns></returns>
     protected object GetIdentifier(object entity, IClassMetadata meta = null) {
-      var type = entity.GetType();
+      var type = GetProxyRealType(entity);
       meta = meta ?? session.SessionFactory.GetClassMetadata(type);
 
       if (meta.IdentifierType != null) {
@@ -417,19 +600,63 @@ namespace Breeze.ContextProvider.NH {
     /// <summary>
     /// Refresh the entities from the database.  This picks up changes due to triggers, etc.
     /// </summary>
-    /// TODO make this faster
-    /// TODO make this optional
     /// <param name="saveMap"></param>
     protected void RefreshFromSession(Dictionary<Type, List<EntityInfo>> saveMap) {
       //using (var tx = session.BeginTransaction()) {
         foreach (var kvp in saveMap) {
+          var config = breezeConfigurator.GetModelConfiguration(kvp.Key);
+          if(!config.RefreshAfterSave && !config.RefreshAfterUpdate)
+            continue;
           foreach (var entityInfo in kvp.Value) {
-            if (entityInfo.EntityState == EntityState.Added || entityInfo.EntityState == EntityState.Modified)
+            if ((entityInfo.EntityState == EntityState.Added && config.RefreshAfterSave) || (entityInfo.EntityState == EntityState.Modified && config.RefreshAfterUpdate))
               session.Refresh(entityInfo.Entity);
           }
         }
         //tx.Commit();
       //}
+    }
+
+    /// <summary>
+    /// Refresh the entities from the database.  This picks up changes due to triggers, etc.
+    /// </summary>
+    /// <param name="saveMap"></param>
+    protected async Task RefreshFromSessionAsync(Dictionary<Type, List<EntityInfo>> saveMap) {
+      //using (var tx = session.BeginTransaction()) {
+        foreach (var kvp in saveMap) {
+          var config = breezeConfigurator.GetModelConfiguration(kvp.Key);
+          if(!config.RefreshAfterSave && !config.RefreshAfterUpdate)
+            continue;
+          foreach (var entityInfo in kvp.Value) {
+            if ((entityInfo.EntityState == EntityState.Added && config.RefreshAfterSave) || (entityInfo.EntityState == EntityState.Modified && config.RefreshAfterUpdate))
+              await session.RefreshAsync(entityInfo.Entity);
+          }
+        }
+        //tx.Commit();
+      //}
+    }
+
+    /// <summary>
+    /// Custom function to get the real entity type as NHibernateUtil.GetClass returns wrong types
+    /// </summary>
+    /// <param name="proxy"></param>
+    /// <returns></returns>
+    public static Type GetProxyRealType(object proxy)
+    {
+        var nhProxy = proxy as IProxy;
+        if (nhProxy == null) return proxy.GetType();
+
+        var lazyInitializer = nhProxy.Interceptor as ILazyInitializer;
+        if (lazyInitializer != null)
+            return lazyInitializer.PersistentClass;
+
+        var fieldInterceptorAccessor = nhProxy.Interceptor as IFieldInterceptorAccessor;
+        if (fieldInterceptorAccessor != null)
+        {
+            return fieldInterceptorAccessor.FieldInterceptor == null
+                ? proxy.GetType().BaseType
+                : fieldInterceptorAccessor.FieldInterceptor.MappedClass;
+        }
+        return proxy.GetType();
     }
 
 

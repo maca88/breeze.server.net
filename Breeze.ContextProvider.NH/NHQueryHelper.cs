@@ -1,11 +1,19 @@
-﻿using Breeze.WebApi2;
+﻿using System.Net.Http;
+using System.Web.Http.Filters;
+using System.Web.Http.OData.Query.Validators;
+using Breeze.WebApi2;
+using Microsoft.Data.Edm;
+using Microsoft.Data.OData.Query;
+using Microsoft.Data.OData.Query.SemanticAst;
 using NHibernate;
 using NHibernate.Linq;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http.Formatting;
 using System.Reflection;
+using System.Threading.Tasks;
 using System.Web.Http.OData.Query;
 
 namespace Breeze.ContextProvider.NH
@@ -145,6 +153,12 @@ namespace Breeze.ContextProvider.NH
             ConfigureFormatter(jsonFormatter, GetSession(queryable));
         }
 
+        public override void ConfigureFormatter(HttpRequestMessage request, IQueryable queryable)
+        {
+            var jsonFormatter = request.GetConfiguration().Formatters.JsonFormatter;
+            ConfigureFormatter(jsonFormatter, GetSession(queryable));
+        }
+
         /// <summary>
         /// Configure the JsonFormatter to limit the object serialization of the response.
         /// </summary>
@@ -153,27 +167,37 @@ namespace Breeze.ContextProvider.NH
         private void ConfigureFormatter(JsonMediaTypeFormatter jsonFormatter, ISession session)
         {
             var settings = jsonFormatter.SerializerSettings;
+            ISessionFactory sessionFactory = null;
 
             if (session != null)
             {
+                sessionFactory = session.SessionFactory;
                 // Only serialize the properties that were initialized before session was closed
-                if (session.IsOpen) session.Close();
+                Close();
             }
+        }
 
-            settings.ContractResolver = NHibernateContractResolver.Instance;
+        public virtual Task ConfigureFormatterAsync(HttpRequestMessage request, IQueryable queryable)
+        {
+            var jsonFormatter = request.GetConfiguration().Formatters.JsonFormatter;
+            return ConfigureFormatterAsync(jsonFormatter, GetSession(queryable));
+        }
 
-            settings.Error = delegate(object sender, Newtonsoft.Json.Serialization.ErrorEventArgs args)
+        /// <summary>
+        /// Configure the JsonFormatter to limit the object serialization of the response.
+        /// </summary>
+        /// <param name="jsonFormatter">request.GetConfiguration().Formatters.JsonFormatter</param>
+        /// <param name="session">If not null, will be closed by this method.  Otherwise, the session must be closed by the Controller.</param>
+        private async Task ConfigureFormatterAsync(JsonMediaTypeFormatter jsonFormatter, ISession session)
+        {
+            var settings = jsonFormatter.SerializerSettings;
+            ISessionFactory sessionFactory = null;
+
+            if (session != null)
             {
-                // When the NHibernate session is closed, NH proxies throw LazyInitializationException when
-                // the serializer tries to access them.  We want to ignore those exceptions.
-                var error = args.ErrorContext.Error;
-                if (error is LazyInitializationException || error is ObjectDisposedException)
-                    args.ErrorContext.Handled = true;
-            };
-
-            if (!settings.Converters.Any(c => c is NHibernateProxyJsonConverter))
-            {
-                settings.Converters.Add(new NHibernateProxyJsonConverter());
+                sessionFactory = session.SessionFactory;
+                // Only serialize the properties that were initialized before session was closed
+                await CloseAsync();
             }
         }
 
@@ -184,9 +208,119 @@ namespace Breeze.ContextProvider.NH
         public override void Close(object responseObject)
         {
             session = GetSession(responseObject as IQueryable);
-            if (session != null)
+            Close();
+        }
+
+        /// <summary>
+        /// Release any resources associated with this QueryHelper.
+        /// </summary>
+        /// <param name="responseObject">Response payload, which may have associated resources.</param>
+        public virtual Task CloseAsync(object responseObject)
+        {
+            session = GetSession(responseObject as IQueryable);
+            return CloseAsync();
+        }
+
+        private async Task CloseAsync()
+        {
+            if (session == null || !session.IsOpen) return;
+            if (session.GetSessionImplementation().TransactionInProgress)
             {
-                if (session.IsOpen) session.Close();
+                var tx = session.Transaction;
+                try
+                {
+                    if (tx.IsActive) await tx.CommitAsync();
+                    session.Close();
+                }
+                catch (Exception)
+                {
+                    if (tx.IsActive) tx.Rollback();
+                    throw;
+                }
+            }
+            else
+            {
+                session.Close();
+            }
+        }
+
+        private void Close()
+        {
+            if (session == null || !session.IsOpen) return;
+            if (session.GetSessionImplementation().TransactionInProgress)
+            {
+                var tx = session.Transaction;
+                try
+                {
+                    if (tx.IsActive) tx.Commit();
+                    session.Close();
+                }
+                catch (Exception)
+                {
+                    if (tx.IsActive) tx.Rollback();
+                    throw;
+                }
+            }
+            else
+            {
+                session.Close();
+            }
+        }
+
+
+        /// <summary>
+        /// Replaces the response.Content with the query results, wrapped in a QueryResult object if necessary.
+        /// </summary>
+        /// <param name="request"></param>
+        /// <param name="response"></param>
+        /// <param name="queryResult"></param>
+        public virtual async Task WrapResultAsync(HttpRequestMessage request, HttpResponseMessage response, IQueryable queryResult)
+        {
+            Object tmp;
+            request.Properties.TryGetValue("MS_InlineCount", out tmp);
+            var inlineCount = (Int64?)tmp;
+
+            // if a select or expand was encountered we need to
+            // execute the DbQueries here, so that any exceptions thrown can be properly returned.
+            // if we wait to have the query executed within the serializer, some exceptions will not
+            // serialize properly.
+
+            var queryType = queryResult.GetType();
+
+            if (!queryType.IsGenericType)
+            {
+                throw new ArgumentException("queryResult is not generic");
+            }
+            var entityType = queryType.GetGenericArguments().First();
+
+            var listQueryResult = await ((dynamic)(typeof(LinqExtensionMethods).GetMethod("ToListAsync").MakeGenericMethod(entityType).Invoke(null, new object[] { queryResult })));
+
+            var elementType = queryResult.ElementType;
+            if (elementType.Name.StartsWith("SelectAllAndExpand"))
+            {
+                var prop = elementType.GetProperties().FirstOrDefault(pi => pi.Name == "Instance");
+                var mi = prop.GetGetMethod();
+                var lqr = (List<Object>)listQueryResult;
+                listQueryResult = (dynamic)lqr.Select(item => {
+                    var instance = mi.Invoke(item, null);
+                    return (Object)instance;
+                }).ToList();
+            }
+
+            // HierarchyNodeExpressionVisitor
+            listQueryResult = PostExecuteQuery((IEnumerable)listQueryResult);
+
+            if (listQueryResult != null || inlineCount.HasValue)
+            {
+                Object result = listQueryResult;
+                if (inlineCount.HasValue)
+                {
+                    result = new QueryResult() { Results = listQueryResult, InlineCount = inlineCount };
+                }
+
+                var formatter = ((dynamic)response.Content).Formatter;
+                var oc = new ObjectContent(result.GetType(), result, formatter);
+                response.Content = oc;
             }
         }
 

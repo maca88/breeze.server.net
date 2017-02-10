@@ -62,7 +62,7 @@ namespace Breeze.ContextProvider.NH
             pathIndex++;
 
             var collection = child as IEnumerable;
-            if (collection != null)
+            if (collection != null && !(child is string))
             {
                 System.Collections.IEnumerator iter = collection.GetEnumerator();
                 while (iter.MoveNext())

@@ -22,6 +22,17 @@ namespace Breeze.ContextProvider.NH
     {
         protected string[] expandPaths;
         protected ISession session;
+        private static readonly MethodInfo IncludeMethod;
+
+        static NHQueryHelper()
+        {
+            IncludeMethod = AppDomain.CurrentDomain.GetAssemblies()
+                .Where(o => !o.IsDynamic)
+                .Where(o => o.GetName().Name == "NHibernate.Extensions")
+                .Select(o => o.GetTypes().First(t => t.FullName == "NHibernate.Linq.LinqExtensions"))
+                .Select(o => o.GetMethods().First(m => m.Name == "Include" && !m.IsGenericMethod && m.GetParameters().Length == 2))
+                .FirstOrDefault();
+        }
 
         public NHQueryHelper(bool enableConstantParameterization, bool ensureStableOrdering, HandleNullPropagationOption handleNullPropagation, int pageSize)
             : base(enableConstantParameterization, ensureStableOrdering, handleNullPropagation, pageSize)
@@ -106,6 +117,14 @@ namespace Breeze.ContextProvider.NH
         /// <returns></returns>
         public override IQueryable ApplyExpand(IQueryable queryable, ODataQueryOptions queryOptions)
         {
+            if (IncludeMethod == null || expandPaths == null)
+            {
+                return queryable;
+            }
+            foreach (var path in expandPaths)
+            {
+                IncludeMethod.Invoke(null, new object[] { queryable, path.Replace("/", ".") });
+            }
             return queryable;
         }
 
@@ -134,7 +153,7 @@ namespace Breeze.ContextProvider.NH
         /// <param name="list"></param>
         public override IEnumerable PostExecuteQuery(IEnumerable list)
         {
-            if (expandPaths != null)
+            if (expandPaths != null && IncludeMethod == null)
             {
                 NHExpander.InitializeList(list, expandPaths);
             }

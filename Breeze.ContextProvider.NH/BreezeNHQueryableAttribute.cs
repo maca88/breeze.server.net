@@ -23,7 +23,14 @@ namespace Breeze.ContextProvider.NH {
     {
         private static string QUERY_HELPER_KEY = "EnableBreezeQueryAttribute_QUERY_HELPER_KEY";
         private ODataValidationSettings _validationSettings;
+        private static readonly MethodInfo DistinctMethodInfo;
 
+
+        static BreezeNHQueryableAttribute()
+        {
+            DistinctMethodInfo =
+                typeof(Queryable).GetMethods().First(o => o.Name == "Distinct" && o.GetParameters().Length == 1);
+        }
 
         /// <summary>
         /// Sets HandleNullPropagation = false on the base class.  Otherwise it's true for non-EF, and that
@@ -162,6 +169,14 @@ namespace Breeze.ContextProvider.NH {
 
             queryable = queryHelper.BeforeApplyQuery(queryable, queryOptions);
             queryable = queryHelper.ApplyQuery(queryable, queryOptions);
+            var paramValues = queryOptions.Request.GetQueryNameValuePairs().ToDictionary(o => o.Key, o => o.Value);
+            var qType = queryable.GetType();
+            if (paramValues.ContainsKey("$distinct") && qType.IsGenericType)
+            {
+                queryable = (IQueryable)DistinctMethodInfo
+                    .MakeGenericMethod(qType.GenericTypeArguments.First())
+                    .Invoke(null, new[] { queryable });
+            }
             return queryable;
         }
     }

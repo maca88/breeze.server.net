@@ -16,7 +16,7 @@ namespace Breeze.ContextProvider.NH
 
         bool RefreshAfterUpdate { get; set; }
 
-        Dictionary<string, IMemberConfiguration> MemberConfigurations { get; set; }
+        Dictionary<string, IMemberConfiguration> MemberConfigurations { get; }
     }
 
     public interface IModelConfiguration<TModel>

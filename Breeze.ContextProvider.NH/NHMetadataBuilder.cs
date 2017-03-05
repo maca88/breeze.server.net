@@ -14,6 +14,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Data.Entity.Design.PluralizationServices;
+using Breeze.ContextProvider.NH.Metadata;
 
 namespace Breeze.ContextProvider.NH
 {
@@ -24,9 +25,9 @@ namespace Breeze.ContextProvider.NH
     public class NHMetadataBuilder
     {
         private ISessionFactory _sessionFactory;
-        private Metadata _map;
+        private MetadataSchema _map;
         private List<Dictionary<string, object>> _typeList;
-        private Dictionary<string, object> _resourceMap;
+        private Dictionary<string, string> _resourceMap;
         private HashSet<string> _typeNames;
         private List<Dictionary<string, object>> _enumList;
         private PluralizationService _pluralizationService;
@@ -44,7 +45,7 @@ namespace Breeze.ContextProvider.NH
         /// The result can be converted to JSON and sent to the Breeze client.
         /// </summary>
         /// <returns></returns>
-        public Metadata BuildMetadata()
+        public MetadataSchema BuildMetadata()
         {
             return BuildMetadata((Func<Type, bool>) null);
         }
@@ -55,7 +56,7 @@ namespace Breeze.ContextProvider.NH
         /// </summary>
         /// <param name="includeFilter">Function that returns true if a Type should be included in metadata, false otherwise</param>
         /// <returns></returns>
-        public Metadata BuildMetadata(Func<Type, bool> includeFilter)
+        public MetadataSchema BuildMetadata(Func<Type, bool> includeFilter)
         {
             // retrieves all mappings with the name property set on the class  (mapping with existing type, no duck typing)
             IDictionary<string, IClassMetadata> classMeta = _sessionFactory.GetAllClassMetadata().Where(p => ((IEntityPersister)p.Value).EntityMetamodel.Type != null).ToDictionary(p => p.Key, p => p.Value);
@@ -73,7 +74,7 @@ namespace Breeze.ContextProvider.NH
         /// </summary>
         /// <param name="classMeta">Entity metadata types to include in the metadata</param>
         /// <returns></returns>
-        public Metadata BuildMetadata(IEnumerable<IClassMetadata> classMeta)
+        public MetadataSchema BuildMetadata(IEnumerable<IClassMetadata> classMeta)
         {
             InitMap();
 
@@ -90,10 +91,10 @@ namespace Breeze.ContextProvider.NH
         /// </summary>
         void InitMap()
         {
-            _map = new Metadata();
+            _map = new MetadataSchema();
             _typeList = new List<Dictionary<string, object>>();
             _typeNames = new HashSet<string>();
-            _resourceMap = new Dictionary<string, object>();
+            _resourceMap = new Dictionary<string, string>();
             _map.ForeignKeyMap = new Dictionary<string, string>();
             _enumList = new List<Dictionary<string, object>>();
             _map.Add("localQueryComparisonOptions", "caseInsensitiveSQL");
@@ -817,19 +818,23 @@ namespace Breeze.ContextProvider.NH
                     {"TimeAsTimeSpan", "duration" }
                 };
 
+        public static DataType GetDataType(Type type)
+        {
+            string newType;
+            type = Nullable.GetUnderlyingType(type) ?? type;
+            var typeName = (BreezeTypeMap.TryGetValue(type.Name, out newType)) ? newType : type.Name;
+            DataType dataType;
+            return Enum.TryParse(typeName, out dataType) ? dataType : DataType.Undefined;
+        }
 
-    }
+        public static Validator GetTypeValidator(Type type)
+        {
+            string validationName;
+            type = Nullable.GetUnderlyingType(type) ?? type;
+            return ValidationTypeMap.TryGetValue(type.Name, out validationName)
+                ? new Validator { Name = validationName }
+                : null;
 
-    /// <summary>
-    /// Metadata describing the entity model.  Converted to JSON to send to Breeze client.
-    /// </summary>
-    public class Metadata : Dictionary<string, object>
-    {
-        /// <summary>
-        /// Map of relationship name -> foreign key name, e.g. "Customer" -> "CustomerID".
-        /// Used for re-establishing the entity relationships from the foreign key values during save.
-        /// This part is not sent to the client because it is separate from the base dictionary implementation.
-        /// </summary>
-        public IDictionary<string, string> ForeignKeyMap;
+        }
     }
 }

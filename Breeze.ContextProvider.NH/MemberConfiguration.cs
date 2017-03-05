@@ -24,27 +24,39 @@ namespace Breeze.ContextProvider.NH
             return this;
         }
 
-        public IMemberConfiguration<TModel, TType> DefaultValueHandling(DefaultValueHandling valueHandling)
+        public new IMemberConfiguration<TModel, TType> DefaultValueHandling(DefaultValueHandling valueHandling)
         {
             base.DefaultValueHandling = valueHandling;
             return this;
         }
 
-        public IMemberConfiguration<TModel, TType> Readable(bool value)
+        public new IMemberConfiguration<TModel, TType> Readable(bool value)
         {
             base.Readable = value;
             return this;
         }
 
-        public IMemberConfiguration<TModel, TType> Writable(bool value)
+        public new IMemberConfiguration<TModel, TType> Writable(bool value)
         {
             base.Writable = value;
+            return this;
+        }
+
+        public new IMemberConfiguration<TModel, TType> Order(int? value)
+        {
+            base.Order = value;
             return this;
         }
 
         ICustomMemberConfiguration<TModel, TType> ICustomMemberConfiguration<TModel, TType>.DefaultValue(TType value)
         {
             base.DefaultValue = value;
+            return this;
+        }
+
+        ICustomMemberConfiguration<TModel, TType> ICustomMemberConfiguration<TModel, TType>.Order(int? value)
+        {
+            base.Order = value;
             return this;
         }
 
@@ -64,6 +76,15 @@ namespace Breeze.ContextProvider.NH
             return this;
         }
 
+        ICustomMemberConfiguration<TModel, TType> ICustomMemberConfiguration<TModel, TType>.ShouldDeserialize(Func<TModel, bool> conditionFunc)
+        {
+            if (conditionFunc != null)
+                ShouldDeserializePredicate = model => conditionFunc((TModel)model);
+            else
+                ShouldDeserializePredicate = null;
+            return this;
+        }
+
         public IMemberConfiguration<TModel, TType> Ignore()
         {
             Ignored = true;
@@ -76,7 +97,7 @@ namespace Breeze.ContextProvider.NH
             return this;
         }
 
-        public IMemberConfiguration<TModel, TType> SerializedName(string name)
+        public new IMemberConfiguration<TModel, TType> SerializedName(string name)
         {
             base.SerializedName = name;
             return this;
@@ -88,7 +109,7 @@ namespace Breeze.ContextProvider.NH
             return this;
         }
 
-        public IMemberConfiguration<TModel, TType> DefaultValue(TType value)
+        public new IMemberConfiguration<TModel, TType> DefaultValue(TType value)
         {
             base.DefaultValue = value;
             return this;
@@ -128,6 +149,15 @@ namespace Breeze.ContextProvider.NH
                 ShouldSerializePredicate = model => conditionFunc((TModel) model);
             else
                 ShouldSerializePredicate = null;
+            return this;
+        }
+
+        public IMemberConfiguration<TModel, TType> ShouldDeserialize(Func<TModel, bool> conditionFunc)
+        {
+            if (conditionFunc != null)
+                ShouldDeserializePredicate = model => conditionFunc((TModel)model);
+            else
+                ShouldDeserializePredicate = null;
             return this;
         }
     }
@@ -173,6 +203,8 @@ namespace Breeze.ContextProvider.NH
 
         public object DefaultValue { get; set; }
 
+        public int? Order { get; set; }
+
         public string SerializedName { get; set; }
 
         public bool? Readable { get; set; }
@@ -180,6 +212,8 @@ namespace Breeze.ContextProvider.NH
         public bool? Writable { get; set; }
 
         public Predicate<object> ShouldSerializePredicate { get; set; }
+
+        public Predicate<object> ShouldDeserializePredicate { get; set; }
 
         public Func<object, IMemberConfiguration, object, object> SerializeFunc { get; set; }
 

@@ -15,6 +15,7 @@ using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Transactions;
+using Breeze.ContextProvider.NH.Metadata;
 using Newtonsoft.Json.Linq;
 using NHibernate.Util;
 
@@ -23,7 +24,7 @@ namespace Breeze.ContextProvider.NH {
     private ISession session;
     private IBreezeConfigurator breezeConfigurator;
     //protected Configuration configuration;
-    private static Dictionary<ISessionFactory, Metadata> _factoryMetadata = new Dictionary<ISessionFactory, Metadata>();
+    private static Dictionary<ISessionFactory, MetadataSchema> _factoryMetadata = new Dictionary<ISessionFactory, MetadataSchema>();
     private static object _metadataLock = new object();
 
     /// <summary>
@@ -43,6 +44,7 @@ namespace Breeze.ContextProvider.NH {
     /// <param name="sourceContext">source of the Session and metadata used by this new context.</param>
     public NHContext(NHContext sourceContext) {
       this.session = sourceContext.Session;
+      this.breezeConfigurator = sourceContext.breezeConfigurator;
       this._metadata = sourceContext.GetMetadata();
     }
 
@@ -253,7 +255,12 @@ namespace Breeze.ContextProvider.NH {
       return json;
     }
 
-    protected Metadata GetMetadata() {
+    protected bool IsMetadataBuilt()
+    {
+      return _factoryMetadata.ContainsKey(session.SessionFactory);
+    }
+
+    protected MetadataSchema GetMetadata() {
       if (_metadata == null) {
           lock (_metadataLock) {
               if (!_factoryMetadata.TryGetValue(session.SessionFactory, out _metadata)) {
@@ -272,7 +279,7 @@ namespace Breeze.ContextProvider.NH {
 
     private Dictionary<EntityInfo, KeyMapping> EntityKeyMapping = new Dictionary<EntityInfo, KeyMapping>();
     private List<EntityError> entityErrors = new List<EntityError>();
-    private Metadata _metadata;
+    private MetadataSchema _metadata;
 
     /// <summary>
     /// Persist the changes to the entities in the saveMap.

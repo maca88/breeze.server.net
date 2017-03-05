@@ -223,6 +223,7 @@ namespace Breeze.ContextProvider.NH
                     meta.SetPropertyValue(clientEntity, propName, val, EntityMode.Poco);
                 }
             }
+            // TODO: update unmapped properties
             typeof(EntityInfo).GetProperty("Entity").SetValue(entityInfo, clientEntity);
             return true;
         }
@@ -333,6 +334,7 @@ namespace Breeze.ContextProvider.NH
 
             var config = breezeConfigurator.GetModelConfiguration(entityType);
 
+            // TODO: set only modified properties
             for (var i = 0; i < propNames.Length; i++)
             {
                 var propType = propTypes[i];
@@ -343,7 +345,8 @@ namespace Breeze.ContextProvider.NH
                     : null;
                 if (memberConfig != null && (
                     (memberConfig.Ignored.HasValue && memberConfig.Ignored.Value) || 
-                    (memberConfig.Writable.HasValue && !memberConfig.Writable.Value)
+                    (memberConfig.Writable.HasValue && !memberConfig.Writable.Value) ||
+                    (memberConfig.ShouldDeserializePredicate != null && memberConfig.ShouldDeserializePredicate.Invoke(entityInfo.Entity) == false)
                 ))
                     continue;
                 

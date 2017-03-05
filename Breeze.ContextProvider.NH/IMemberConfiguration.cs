@@ -29,7 +29,11 @@ namespace Breeze.ContextProvider.NH
 
         string SerializedName { get; set; }
 
+        int? Order { get; set; }
+
         Predicate<object> ShouldSerializePredicate { get; set; }
+
+        Predicate<object> ShouldDeserializePredicate { get; set; }
 
         bool? Writable { get; set; }
 
@@ -50,6 +54,8 @@ namespace Breeze.ContextProvider.NH
 
         IMemberConfiguration<TModel, TType> Writable(bool value);
 
+        IMemberConfiguration<TModel, TType> Order(int? value);
+
         IMemberConfiguration<TModel, TType> SerializedName(string name);
 
         IMemberConfiguration<TModel, TType> DefaultValue(TType value);
@@ -67,5 +73,7 @@ namespace Breeze.ContextProvider.NH
         IMemberConfiguration<TModel, TType> Deserialize(Func<TModel, TType, TType> deserializeFun);
 
         IMemberConfiguration<TModel, TType> ShouldSerialize(Func<TModel, bool> conditionFunc);
+
+        IMemberConfiguration<TModel, TType> ShouldDeserialize(Func<TModel, bool> conditionFunc);
     }
 }

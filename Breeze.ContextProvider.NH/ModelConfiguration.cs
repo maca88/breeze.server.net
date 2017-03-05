@@ -11,7 +11,7 @@ namespace Breeze.ContextProvider.NH
         {
         }
 
-        public IModelConfiguration<TModel> RefreshAfterUpdate(bool value)
+        public new IModelConfiguration<TModel> RefreshAfterUpdate(bool value)
         {
             base.RefreshAfterUpdate = value;
             return this;
@@ -38,13 +38,13 @@ namespace Breeze.ContextProvider.NH
             return this;
         }
 
-        public IModelConfiguration<TModel> ResourceName(string resName)
+        public new IModelConfiguration<TModel> ResourceName(string resName)
         {
             base.ResourceName = resName;
             return this;
         }
 
-        public IModelConfiguration<TModel> RefreshAfterSave(bool value)
+        public new IModelConfiguration<TModel> RefreshAfterSave(bool value)
         {
             base.RefreshAfterSave = value;
             return this;

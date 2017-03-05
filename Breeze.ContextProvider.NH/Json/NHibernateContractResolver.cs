@@ -14,6 +14,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using System.Collections;
 using Breeze.ContextProvider.NH.Extensions;
+using NHibernate.Proxy.DynamicProxy;
 using NHibernate.Type;
 
 namespace Breeze.ContextProvider.NH
@@ -142,7 +143,7 @@ namespace Breeze.ContextProvider.NH
         public override JsonContract ResolveContract(Type type)
         {
             //Proxies for entity types that have one or more lazy fields/properties will implements IFieldInterceptorAccessor.
-            if (typeof(IFieldInterceptorAccessor).IsAssignableFrom(type))
+            if (typeof(IProxy).IsAssignableFrom(type) || typeof(IFieldInterceptorAccessor).IsAssignableFrom(type))
             {
                 type = type.BaseType;
             }
@@ -241,6 +242,8 @@ namespace Breeze.ContextProvider.NH
                 PropertyName = member.SerializedName,
                 Converter = member.Converter,
                 Ignored = member.Ignored.HasValue && member.Ignored.Value,
+                ShouldDeserialize = member.ShouldDeserializePredicate,
+                Order = member.Order
             };
         }
 
@@ -255,19 +258,25 @@ namespace Breeze.ContextProvider.NH
                 else
                     property.ShouldSerialize = predicate;
             }
+            var predicate2 = memberConfiguration.ShouldDeserializePredicate;
+            if (predicate2 != null)
+            {
+                if (property.ShouldDeserialize != null)
+                    property.ShouldDeserialize =
+                        instance => property.ShouldDeserialize(instance) && predicate2(instance);
+                else
+                    property.ShouldDeserialize = predicate2;
+            }
             property.DefaultValueHandling = memberConfiguration.DefaultValueHandling;
             property.DefaultValue = memberConfiguration.DefaultValue;
             if (!string.IsNullOrEmpty(memberConfiguration.SerializedName))
                 property.PropertyName = memberConfiguration.SerializedName;
             property.Converter = memberConfiguration.Converter;
             property.Ignored = memberConfiguration.Ignored.HasValue && memberConfiguration.Ignored.Value;
-            property.Writable = memberConfiguration.Writable.HasValue 
-                ? memberConfiguration.Writable.Value 
-                : property.Writable;
-            property.Readable = memberConfiguration.Readable.HasValue 
-                ? memberConfiguration.Readable.Value 
-                : property.Readable;
+            property.Writable = memberConfiguration.Writable ?? property.Writable;
+            property.Readable = memberConfiguration.Readable ?? property.Readable;
             property.ValueProvider = new BreezeValueProvider(property.ValueProvider, memberConfiguration);
+            property.Order = memberConfiguration.Order ?? property.Order;
         }
 
         public bool IsPropertyInitialized<TType>(TType entity, string memberName)

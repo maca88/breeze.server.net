@@ -84,6 +84,7 @@ namespace Breeze.ContextProvider.NH
             mergedMember.DefaultValue = member.DefaultValue ?? mergedMember.DefaultValue;
             mergedMember.SerializeFunc = member.SerializeFunc ?? mergedMember.SerializeFunc;
             mergedMember.ShouldSerializePredicate = member.ShouldSerializePredicate ?? mergedMember.ShouldSerializePredicate;
+            mergedMember.ShouldDeserializePredicate = member.ShouldDeserializePredicate ?? mergedMember.ShouldDeserializePredicate;
             mergedMember.Ignored = member.Ignored ?? mergedMember.Ignored;
             if (mergedMember.Ignored.GetValueOrDefault())
             {
@@ -93,6 +94,7 @@ namespace Breeze.ContextProvider.NH
             mergedMember.Readable = member.Readable ?? mergedMember.Readable;
             mergedMember.SerializedName = member.SerializedName ?? mergedMember.SerializedName;
             mergedMember.MemberType = member.MemberType ?? mergedMember.MemberType;
+            mergedMember.Order = member.Order ?? mergedMember.Order;
             return mergedMember;
         }
 

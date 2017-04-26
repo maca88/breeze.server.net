@@ -204,11 +204,20 @@ namespace Breeze.ContextProvider.NH
             }
 
             //Do not serialize entity properties that are not mapped and dont have a configuration set (we dont want to expose data that the client will not use)
-            foreach (var property in properties.Where(o => o.UnderlyingName != null && 
-                !propNames.Contains(o.UnderlyingName) && 
-                !modelConfiguration.MemberConfigurations.ContainsKey(o.UnderlyingName)))
+            foreach (var property in properties.Where(o => o.UnderlyingName != null))
             {
-                property.Ignored = true;
+                var memberConfig = modelConfiguration.MemberConfigurations.ContainsKey(property.UnderlyingName)
+                    ? modelConfiguration.MemberConfigurations[property.UnderlyingName]
+                    : null;
+                if (!propNames.Contains(property.UnderlyingName) && memberConfig == null)
+                {
+                    property.Ignored = true;
+                    continue;
+                }
+                if (propNames.Contains(property.UnderlyingName))
+                {
+                    property.Writable = memberConfig?.Writable ?? true; // protected property setter shall be writable by default
+                }
             }
         }
 

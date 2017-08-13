@@ -113,6 +113,9 @@
     <Compile Include="..\Breeze.ContextProvider.NH\Extensions\MemberInfoExtensions.cs">
       <Link>Extensions\MemberInfoExtensions.cs</Link>
     </Compile>
+    <Compile Include="..\Breeze.ContextProvider.NH\Extensions\SessionFactoryExtensions.cs">
+      <Link>Extensions\SessionFactoryExtensions.cs</Link>
+    </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\Extensions\TypeExtensions.cs">
       <Link>Extensions\TypeExtensions.cs</Link>
     </Compile>
@@ -244,6 +247,12 @@
     </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\NHRelationshipFixer.cs">
       <Link>NHRelationshipFixer.cs</Link>
+    </Compile>
+    <Compile Include="..\Breeze.ContextProvider.NH\NHSyntheticProperty.cs">
+      <Link>NHSyntheticProperty.cs</Link>
+    </Compile>
+    <Compile Include="..\Breeze.ContextProvider.NH\NHSyntheticPropertyValueProvider.cs">
+      <Link>NHSyntheticPropertyValueProvider.cs</Link>
     </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\NHTransactionWrapper.cs">
       <Link>NHTransactionWrapper.cs</Link>

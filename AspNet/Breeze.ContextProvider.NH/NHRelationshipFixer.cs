@@ -751,6 +751,29 @@ namespace Breeze.ContextProvider.NH
                 entityInfo.OriginalValuesMap.TryGetValue(foreignKeyName, out id);
             }
 
+            var syntheticProperties = session.SessionFactory.GetSyntheticProperties();
+
+            // If id is still null try get from a unmapped values (synthetic properties)
+            if (!entityInfo.UnmappedValuesMap.ContainsKey(foreignKeyName) || syntheticProperties == null ||
+                entityInfo.Entity == null)
+            {
+                return id;
+            }
+            var entityType = entityInfo.Entity.GetType();
+            if (!syntheticProperties.ContainsKey(entityType))
+            {
+                return id;
+            }
+            var synColumn = syntheticProperties[entityType].FirstOrDefault(o => o.Name == foreignKeyName);
+            if (synColumn == null)
+            {
+                return id;
+            }
+            // We have to convert the value in the propriate type
+            id = entityInfo.UnmappedValuesMap[foreignKeyName];
+            // Here we first convert id to string so that we wont get exception like: Cannot convert from Int64 to Int32
+            id = TypeDescriptor.GetConverter(synColumn.PkType.ReturnedClass).ConvertFromInvariantString(id.ToString());
+
             return id;
         }
 

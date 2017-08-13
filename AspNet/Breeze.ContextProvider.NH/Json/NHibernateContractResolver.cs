@@ -26,7 +26,7 @@ namespace Breeze.ContextProvider.NH
     /// </summary>
     public class NHibernateContractResolver : DefaultContractResolver
     {
-        private Dictionary<Type, IClassMetadata> entitiesMetadata = new Dictionary<Type, IClassMetadata>();
+        private Dictionary<Type, IClassMetadata> _entitiesMetadata = new Dictionary<Type, IClassMetadata>();
 
         private static readonly FieldInfo DefaultContractResolverStateNameTableField;
         private static readonly MethodInfo PropertyNameTableAddMethod;
@@ -58,7 +58,7 @@ namespace Breeze.ContextProvider.NH
         {
             var copy = new NHibernateContractResolver(_getMetadataFunc, _breezeConfigurator)
             {
-                entitiesMetadata = entitiesMetadata
+                _entitiesMetadata = _entitiesMetadata
             };
             return copy;
         } 
@@ -114,6 +114,22 @@ namespace Breeze.ContextProvider.NH
                 }
             }
 
+            var syntheticPoperties = _getMetadataFunc(type).GetSyntheticProperties();
+            if (syntheticPoperties != null && syntheticPoperties.Any())
+            {
+                foreach (var syntheticProp in syntheticPoperties)
+                {
+                    properties.Add(new JsonProperty
+                    {
+                        Readable = true,
+                        Writable = true,
+                        PropertyName = syntheticProp.Name,
+                        PropertyType = syntheticProp.PkType.ReturnedClass,
+                        ValueProvider = new NHSyntheticPropertyValueProvider(syntheticProp)
+                    });
+                }
+            }
+
             IList<JsonProperty> orderedProperties = properties.OrderBy(p => p.Order ?? -1).ToList();
 
             ApplySerializationRules(type, orderedProperties, memberSerialization);
@@ -145,7 +161,7 @@ namespace Breeze.ContextProvider.NH
                 var metadata = _getMetadataFunc(type);
                 if (metadata != null)
                 {
-                    entitiesMetadata[type] = metadata;
+                    _entitiesMetadata[type] = metadata;
                 }
             }
             ResolvedTypes.Add(type.FullName);
@@ -180,9 +196,9 @@ namespace Breeze.ContextProvider.NH
                 ConfigureProperty(property, memberRule);
             }
 
-            if (!entitiesMetadata.ContainsKey(type)) 
+            if (!_entitiesMetadata.ContainsKey(type)) 
                 return;
-            var entityMetadata = entitiesMetadata[type];
+            var entityMetadata = _entitiesMetadata[type];
             var propNames = new HashSet<string>(entityMetadata.PropertyNames);
             if (entityMetadata.HasIdentifierProperty)
             {
@@ -288,11 +304,11 @@ namespace Breeze.ContextProvider.NH
 
         public bool IsPropertyInitialized(Type entityType, object entity, string memberName)
         {
-            if (!entitiesMetadata.ContainsKey(entityType))
+            if (!_entitiesMetadata.ContainsKey(entityType))
                 return true;
             if (!NHibernateUtil.IsPropertyInitialized(entity, memberName))
                 return false;
-            var metadata = entitiesMetadata[entityType];
+            var metadata = _entitiesMetadata[entityType];
             var propertyValue = metadata.GetPropertyValue(entity, memberName, EntityMode.Poco);
             return NHibernateUtil.IsInitialized(propertyValue);
         }
@@ -307,9 +323,9 @@ namespace Breeze.ContextProvider.NH
                 
             }
             //Skip if type is not an entity
-            if (!entitiesMetadata.ContainsKey(type))
+            if (!_entitiesMetadata.ContainsKey(type))
                 return;
-            var metadata = entitiesMetadata[type];
+            var metadata = _entitiesMetadata[type];
             var propIdx = metadata.PropertyNames.ToList().IndexOf(member.Name);
             //Skip non mapped properties
             if (propIdx < 0)

@@ -32,6 +32,7 @@ namespace Breeze.ContextProvider.NH
         private List<Dictionary<string, object>> _enumList;
         private PluralizationService _pluralizationService;
         private IBreezeConfigurator _breezeConfigurator;
+        private Dictionary<Type, List<NHSyntheticProperty>> _syntheticProperties;
 
         public NHMetadataBuilder(ISessionFactory sessionFactory, IBreezeConfigurator breezeConfigurator)
         {
@@ -83,6 +84,7 @@ namespace Breeze.ContextProvider.NH
                 if (!meta.GetMappedClass(EntityMode.Poco).FullName.StartsWith("System.")) //Hack for evners revisions as revision table get an IDictionary as mapped type
                     AddClass(meta);
             }
+            _sessionFactory.SetSyntheticProperties(_syntheticProperties);
             return _map;
         }
 
@@ -101,6 +103,7 @@ namespace Breeze.ContextProvider.NH
             _map.Add("structuralTypes", _typeList);
             _map.Add("resourceEntityTypeMap", _resourceMap);
             _map.Add("enumTypes", _enumList);
+            _syntheticProperties = new Dictionary<Type, List<NHSyntheticProperty>>();
         }
 
         /// <summary>
@@ -246,6 +249,7 @@ namespace Breeze.ContextProvider.NH
                 // check that the component belongs to this class, not a superclass
                 if (compType.ReturnedClass == type || meta.IdentifierPropertyName == null || !inheritedProperties.Contains(meta.IdentifierPropertyName))
                 {
+                    var compNull = compType.PropertyNullability;
                     var compNames = compType.PropertyNames;
                     for (int i = 0; i < compNames.Length; i++)
                     {
@@ -528,6 +532,49 @@ namespace Breeze.ContextProvider.NH
                 var entityRelationship = containingType.FullName + '.' + propName;
                 // Look up the related foreign key name using the column name
                 fkNames = GetPropertyNamesForColumns(containingPersister, columnNames);
+
+                // TODO: support FK with multiple columns
+                if (fkNames == null && columnNames.Length == 1) //try to find the column for the relation if is not specified in class
+                {
+                    var pType = containingPersister.GetPropertyType(propName);
+                    var index = containingPersister.PropertyNames
+                        .Select((val, i) => new { Index = i, Value = val })
+                        .Where(o => o.Value == propName)
+                        .Select(o => o.Index)
+                        .First();
+                    var isNullable = containingPersister.PropertyNullability[index];
+                    var convertedColumns = new List<string>();
+                    foreach (var columnName in columnNames)
+                    {
+                        // TODO: convert columnName to c# name
+                        var synProp = new NHSyntheticProperty
+                        {
+                            Name = columnName,
+                            FkPropertyName = propName,
+                            FkType = pType,
+                            IsNullable = isNullable
+                        };
+                        convertedColumns.Add(columnName);
+
+                        var relatedType = _sessionFactory.GetClassMetadata(synProp.FkType.Name);
+                        if (relatedType == null)
+                            throw new ArgumentException("Could not find related entity of type " + synProp.FkType.Name);
+                        synProp.PkType = relatedType.IdentifierType;
+                        synProp.PkPropertyName = relatedType.IdentifierPropertyName;
+
+                        if (!_syntheticProperties.ContainsKey(containingType))
+                            _syntheticProperties.Add(containingType, new List<NHSyntheticProperty>());
+                        _syntheticProperties[containingType].Add(synProp);
+
+                        //Create synthetic property as unmapped
+                        var dmap = MakeDataProperty(memberConfiguration, columnName, relatedType.IdentifierType, synProp.IsNullable, false, false);
+                        dmap["isUnmapped"] = true;
+                        dataProperties.Add(dmap);
+                    }
+                    fkNames = convertedColumns.ToArray();
+                }
+
+
                 if (fkNames != null)
                 {
                     if (propType.ForeignKeyDirection == ForeignKeyDirection.ForeignKeyFromParent)

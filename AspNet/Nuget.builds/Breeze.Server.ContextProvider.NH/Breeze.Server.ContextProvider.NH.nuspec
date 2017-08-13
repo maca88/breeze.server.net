@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
     <metadata>
         <id>Breeze.Server.ContextProvider.NHX</id>
-        <version>1.6.4-Alpha3</version>
+        <version>1.6.5-Alpha1</version>
         <title>Breeze Server - ContextProvider for NHibernateX</title>
         <authors>maca88</authors>
         <owners>IdeaBlade</owners>
@@ -17,7 +17,7 @@
         <releaseNotes>Please review the BreezeJS release notes at http://breeze.github.io/doc-main/release-notes.html</releaseNotes>        
         <tags>javascript WebApi Breeze SPA</tags>
 		<dependencies>
-		    <dependency id="Breeze.Server.ContextProvider" version="[1.6.4]"/>
+		    <dependency id="Breeze.Server.ContextProvider" version="[1.6.5]"/>
 			<dependency id="NHibernateX" version="2.0-Alpha1" />
 		</dependencies>
     </metadata>

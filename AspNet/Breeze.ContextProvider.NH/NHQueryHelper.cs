@@ -195,7 +195,7 @@ namespace Breeze.ContextProvider.NH
                 Close();
             }
         }
-
+#if ASYNC
         public virtual Task ConfigureFormatterAsync(HttpRequestMessage request, IQueryable queryable)
         {
             var jsonFormatter = request.GetConfiguration().Formatters.JsonFormatter;
@@ -219,7 +219,7 @@ namespace Breeze.ContextProvider.NH
                 await CloseAsync();
             }
         }
-
+#endif
         /// <summary>
         /// Release any resources associated with this QueryHelper.
         /// </summary>
@@ -229,7 +229,7 @@ namespace Breeze.ContextProvider.NH
             session = GetSession(responseObject as IQueryable);
             Close();
         }
-
+#if ASYNC
         /// <summary>
         /// Release any resources associated with this QueryHelper.
         /// </summary>
@@ -262,7 +262,7 @@ namespace Breeze.ContextProvider.NH
                 session.Close();
             }
         }
-
+#endif
         private void Close()
         {
             if (session == null || !session.IsOpen) return;

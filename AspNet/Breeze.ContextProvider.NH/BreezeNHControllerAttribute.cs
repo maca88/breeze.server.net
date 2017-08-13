@@ -244,7 +244,7 @@ namespace Breeze.ContextProvider.NH
         public IEnumerable<FilterInfo> GetFilters(HttpConfiguration configuration, HttpActionDescriptor actionDescriptor)
         {
             if (actionDescriptor == null ||
-              (!IsIQueryable(actionDescriptor.ReturnType)) ||
+              //(!IsIQueryable(actionDescriptor.ReturnType)) ||
               actionDescriptor.GetCustomAttributes<EnableBreezeQueryAttribute>().Any() || // if method already has a QueryableAttribute (or subclass) then skip it.
               actionDescriptor.GetParameters().Any(parameter => typeof(ODataQueryOptions).IsAssignableFrom(parameter.ParameterType))
             )

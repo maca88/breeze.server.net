@@ -28,7 +28,6 @@ namespace Breeze.ContextProvider.NH
     {
         private Dictionary<Type, IClassMetadata> entitiesMetadata = new Dictionary<Type, IClassMetadata>();
 
-        private static readonly MethodInfo GetStateMethodInfo;
         private static readonly FieldInfo DefaultContractResolverStateNameTableField;
         private static readonly MethodInfo PropertyNameTableAddMethod;
 
@@ -38,18 +37,13 @@ namespace Breeze.ContextProvider.NH
 
         static NHibernateContractResolver()
         {
-            GetStateMethodInfo = typeof (DefaultContractResolver).GetMethod("GetState",
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            var defaultContractResolverStateType = typeof (DefaultContractResolver).Assembly.GetType(
-                "Newtonsoft.Json.Serialization.DefaultContractResolverState");
-            DefaultContractResolverStateNameTableField = defaultContractResolverStateType.GetField("NameTable");
+            DefaultContractResolverStateNameTableField = typeof(DefaultContractResolver).GetField("_nameTable", BindingFlags.Instance | BindingFlags.NonPublic);
             var propertyNameTableType = typeof(DefaultContractResolver).Assembly.GetType(
                 "Newtonsoft.Json.Utilities.PropertyNameTable");
             PropertyNameTableAddMethod = propertyNameTableType.GetMethod("Add");
 
-            if (GetStateMethodInfo == null)
-                throw new NullReferenceException("internal GetState was not found in DefaultContractResolver");
-
+            if (DefaultContractResolverStateNameTableField == null)
+                throw new NullReferenceException("internal _nameTable field was not found in DefaultContractResolver");
         }
 
         public NHibernateContractResolver(Func<Type, IClassMetadata> getMetadataFunc, IBreezeConfigurator breezeConfigurator)
@@ -108,8 +102,7 @@ namespace Breeze.ContextProvider.NH
 
                 if (property != null)
                 {
-                    var state = GetStateMethodInfo.Invoke(this, null);
-                    var nameTable = DefaultContractResolverStateNameTableField.GetValue(state);
+                    var nameTable = DefaultContractResolverStateNameTableField.GetValue(this);
                     // nametable is not thread-safe for multiple writers
                     lock (nameTable)
                     {
@@ -123,7 +116,7 @@ namespace Breeze.ContextProvider.NH
 
             IList<JsonProperty> orderedProperties = properties.OrderBy(p => p.Order ?? -1).ToList();
 
-             ApplySerializationRules(type, orderedProperties, memberSerialization);
+            ApplySerializationRules(type, orderedProperties, memberSerialization);
             return orderedProperties;
         }
 

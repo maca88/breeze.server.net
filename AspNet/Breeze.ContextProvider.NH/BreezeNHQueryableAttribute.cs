@@ -79,7 +79,7 @@ namespace Breeze.ContextProvider.NH {
         {
             return new NHQueryHelper(GetODataQuerySettings());
         }
-
+#if ASYNC
         public override async Task OnActionExecutedAsync(HttpActionExecutedContext actionExecutedContext, CancellationToken cancellationToken)
         {
             var response = actionExecutedContext.Response;
@@ -109,13 +109,9 @@ namespace Breeze.ContextProvider.NH {
                 {
                     return;
                 }
-                if (typeof(IQueryable).IsAssignableFrom(returnType))
+                var query = responseObject as IQueryable;
+                if (query != null)
                 {
-                    var query = (IQueryable)responseObject;
-                    if (query == null)
-                    {
-                        return;
-                    }
                     var model = GetModel(query.ElementType, request, actionDescriptor);
                     if (model == null)
                         throw new InvalidOperationException("QueryGetModelMustNotReturnNull");
@@ -127,17 +123,69 @@ namespace Breeze.ContextProvider.NH {
                         return;
                     }
                     await queryHelper.WrapResultAsync(request, response, query);
+                    await queryHelper.ConfigureFormatterAsync(actionExecutedContext.Request, query);
                 }
                 // For non-IQueryable results, post-processing must be done manually by the developer.
-
-                await queryHelper.ConfigureFormatterAsync(actionExecutedContext.Request, responseObject as IQueryable);
             }
             finally
             {
                 await queryHelper.CloseAsync(responseObject);
             }
         }
+#else
+        public override void OnActionExecuted(HttpActionExecutedContext actionExecutedContext)
+        {
+            var response = actionExecutedContext.Response;
+            if (response == null)
+            {
+                return;
+            }
 
+            object responseObject;
+            if (!response.TryGetContentValue(out responseObject))
+            {
+                return;
+            }
+
+            var request = actionExecutedContext.Request;
+            var actionDescriptor = actionExecutedContext.ActionContext.ActionDescriptor;
+            var returnType = actionDescriptor.ReturnType;
+            var queryHelper = GetQueryHelper(request) as NHQueryHelper;
+            if (queryHelper == null)
+            {
+                throw new Exception("queryHelper must be a NHQueryHelper");
+            }
+
+            try
+            {
+                if (!response.IsSuccessStatusCode)
+                {
+                    return;
+                }
+                var query = responseObject as IQueryable;
+                if (query != null)
+                {
+                    var model = GetModel(query.ElementType, request, actionDescriptor);
+                    if (model == null)
+                        throw new InvalidOperationException("QueryGetModelMustNotReturnNull");
+                    var queryOptions = new ODataQueryOptions(new ODataQueryContext(model, query.ElementType), request);
+                    ValidateQuery(request, queryOptions);
+                    query = ApplyQuery(query, queryOptions);
+                    if (query == null)
+                    {
+                        return;
+                    }
+                    queryHelper.WrapResult(request, response, query);
+                    queryHelper.ConfigureFormatter(actionExecutedContext.Request, query);
+                }
+                // For non-IQueryable results, post-processing must be done manually by the developer.
+            }
+            finally
+            {
+                queryHelper.Close(responseObject);
+            }
+        }
+#endif
         public override void ValidateQuery(HttpRequestMessage request, ODataQueryOptions queryOptions)
         {
             try

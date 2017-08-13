@@ -22,6 +22,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Breeze.ContextProvider.NH",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Breeze.WebApi2", "Breeze.WebApi2\Breeze.WebApi2.csproj", "{AB54C69A-14C0-4E60-9DD4-CBEA3685C7DD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Breeze.ContextProvider.NHX", "Breeze.ContextProvider.NHX\Breeze.ContextProvider.NHX.csproj", "{9BAF9B00-6A8F-4A98-9104-D40B57C67E0F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -53,6 +55,12 @@ Global
 		{AB54C69A-14C0-4E60-9DD4-CBEA3685C7DD}.OData-debug|Any CPU.Build.0 = OData-debug|Any CPU
 		{AB54C69A-14C0-4E60-9DD4-CBEA3685C7DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AB54C69A-14C0-4E60-9DD4-CBEA3685C7DD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9BAF9B00-6A8F-4A98-9104-D40B57C67E0F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9BAF9B00-6A8F-4A98-9104-D40B57C67E0F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9BAF9B00-6A8F-4A98-9104-D40B57C67E0F}.OData-debug|Any CPU.ActiveCfg = Release|Any CPU
+		{9BAF9B00-6A8F-4A98-9104-D40B57C67E0F}.OData-debug|Any CPU.Build.0 = Release|Any CPU
+		{9BAF9B00-6A8F-4A98-9104-D40B57C67E0F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9BAF9B00-6A8F-4A98-9104-D40B57C67E0F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

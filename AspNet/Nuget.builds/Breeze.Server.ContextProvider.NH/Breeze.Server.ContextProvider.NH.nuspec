@@ -2,9 +2,9 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
     <metadata>
         <id>Breeze.Server.ContextProvider.NHX</id>
-        <version>1.6.4-Alpha1</version>
+        <version>1.6.4-Alpha3</version>
         <title>Breeze Server - ContextProvider for NHibernateX</title>
-        <authors>Jay Traband, Steve Schmitt</authors>
+        <authors>maca88</authors>
         <owners>IdeaBlade</owners>
         <licenseUrl>http://breeze.github.io/doc-main/license.html</licenseUrl>
         <projectUrl>https://github.com/maca88/breeze.server.net</projectUrl>

@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Breeze.ContextProvider.NH.Comparers;
 using NHibernate.Hql;
 
 namespace Breeze.ContextProvider.NH
@@ -238,7 +239,7 @@ namespace Breeze.ContextProvider.NH
             if (entityInfo.EntityState == EntityState.Added)
             {
                 //meta.Instantiate(id, EntityMode.Poco) -> Instantiate method can create a proxy when formulas are present. Saving non persistent proxies will throw an exception
-                dbEntity = Activator.CreateInstance(entityType);
+                dbEntity = Activator.CreateInstance(entityType, true);
                 meta.SetIdentifier(dbEntity, id, EntityMode.Poco);
             }
             else
@@ -249,7 +250,7 @@ namespace Breeze.ContextProvider.NH
                     // for entities with composite key the identifier is the entity itself
                     // we need to create a copy as ImmediateLoad will fill the given entity
                     var componentType = (ComponentType) meta.IdentifierType;
-                    dbEntity = Activator.CreateInstance(entityType);
+                    dbEntity = Activator.CreateInstance(entityType, true);
 
                     // We need to check if the primary key was changed
                     var oldKeyValues = new object[componentType.PropertyNames.Length];
@@ -451,7 +452,8 @@ namespace Breeze.ContextProvider.NH
                 {
                     if(col == null)
                         continue; // formula
-                    colProp.Add(col, propName);
+                    if (!colProp.ContainsKey(col))
+                        colProp.Add(col, propName);
                 }
             }
             if (childPersister.IdentifierType.IsComponentType)
@@ -542,7 +544,16 @@ namespace Breeze.ContextProvider.NH
                             var removed = false;
                             if (removeMethod != null)
                             {
-                                removed = (bool)removeMethod.Invoke(coll, new[] { childEntityInfo.Entity });
+                                IEqualityComparer comparer = new EntityComparer(childMeta);
+
+                                foreach (var item in coll)
+                                {
+                                    if (comparer.Equals(item, childEntityInfo.Entity))
+                                    {
+                                        removed = (bool)removeMethod.Invoke(coll, new[] { item });
+                                        break;
+                                    }
+                                }
                             }
                             childMeta.SetPropertyValue(childEntityInfo.Entity, propertyName, null, EntityMode.Poco);//Remove relation on both sides
                             return removed;

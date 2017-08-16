@@ -93,6 +93,7 @@
     <Compile Include="BreezeConfigurator.cs" />
     <Compile Include="BreezeNHControllerAttribute.cs" />
     <Compile Include="BreezeNHQueryableAttribute.cs" />
+    <Compile Include="Comparers\EntityComparer.cs" />
     <Compile Include="Extensions\DictionaryExtensions.cs" />
     <Compile Include="Extensions\ExpressionExtensions.cs" />
     <Compile Include="Extensions\MemberInfoExtensions.cs" />

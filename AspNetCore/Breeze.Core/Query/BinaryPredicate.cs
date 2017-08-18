@@ -47,7 +47,14 @@ namespace Breeze.Core {
           this._block2 = BaseBlock.CreateRHSBlock(null, entityType, null);
         }
       } else {
-        this._block2 = BaseBlock.CreateRHSBlock(Expr2Source, entityType, this._block1.DataType);
+        try
+        {
+            this._block2 = BaseBlock.CreateRHSBlock(Expr2Source, entityType, this._block1.DataType);
+        }
+        catch (Exception)
+        {
+            this._block2 = BaseBlock.CreateRHSBlock(Expr2Source, entityType, null);
+        }
       }
     }
 

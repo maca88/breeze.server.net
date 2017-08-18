@@ -1,11 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Breeze.Core {
   public static class EntityQueryExtensions {
+    private static readonly MethodInfo IncludeMethod;
+    
+    static EntityQueryExtensions()
+    {
+      IncludeMethod = AppDomain.CurrentDomain.GetAssemblies()
+              .Where(o => !o.IsDynamic)
+              .Where(o => o.GetName().Name == "NHibernate.Extensions")
+              .Select(o => o.GetTypes().First(t => t.FullName == "NHibernate.Linq.LinqExtensions"))
+              .Select(o => o.GetMethods().First(m => m.Name == "Include" && !m.IsGenericMethod && m.GetParameters().Length == 2))
+              .FirstOrDefault();
+    }
+    
     public static IQueryable ApplyWhere(this EntityQuery eq, IQueryable queryable, Type eleType) {
       if (eq.WherePredicate != null) {
         queryable = QueryBuilder.ApplyWhere(queryable, eleType, eq.WherePredicate);
@@ -42,11 +55,10 @@ namespace Breeze.Core {
     }
 
     public static IQueryable ApplyExpand(this EntityQuery eq, IQueryable queryable, Type eleType) {
-      if (eq.ExpandClause != null) {
+      if (eq.ExpandClause != null && IncludeMethod != null) {
         eq.ExpandClause.PropertyPaths.ToList().ForEach(expand => {
-          queryable = ((dynamic)queryable).Include(expand.Replace('/', '.'));
+          queryable = (IQueryable)IncludeMethod.Invoke(null, new object[] { queryable, expand.Replace("/", ".") });
         });
-        
       }
       return queryable;
     }

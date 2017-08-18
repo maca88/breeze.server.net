@@ -183,12 +183,6 @@
     <Compile Include="..\Breeze.ContextProvider.NH\BreezeConfigurator.cs">
       <Link>BreezeConfigurator.cs</Link>
     </Compile>
-    <Compile Include="..\Breeze.ContextProvider.NH\BreezeNHControllerAttribute.cs">
-      <Link>BreezeNHControllerAttribute.cs</Link>
-    </Compile>
-    <Compile Include="..\Breeze.ContextProvider.NH\BreezeNHQueryableAttribute.cs">
-      <Link>BreezeNHQueryableAttribute.cs</Link>
-    </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\Comparers\EntityComparer.cs">
       <Link>Comparers\EntityComparer.cs</Link>
     </Compile>
@@ -224,6 +218,9 @@
     </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\IModelConfiguration.cs">
       <Link>IModelConfiguration.cs</Link>
+    </Compile>
+    <Compile Include="..\Breeze.ContextProvider.NH\JsonFormatter.cs">
+      <Link>JsonFormatter.cs</Link>
     </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\Json\BreezeValueProvider.cs">
       <Link>Json\BreezeValueProvider.cs</Link>
@@ -335,9 +332,6 @@
     </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\NhQueryableInclude.cs">
       <Link>NhQueryableInclude.cs</Link>
-    </Compile>
-    <Compile Include="..\Breeze.ContextProvider.NH\NHQueryHelper.cs">
-      <Link>NHQueryHelper.cs</Link>
     </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\NHRelationshipFixer.cs">
       <Link>NHRelationshipFixer.cs</Link>

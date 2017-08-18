@@ -7,7 +7,6 @@ using System.Reflection;
 using System.Web.Http.Controllers;
 using System.Web.Http.Filters;
 using Breeze.Core;
-using Breeze.WebApi2;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using NHibernate;

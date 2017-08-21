@@ -186,12 +186,6 @@
     <Compile Include="..\Breeze.ContextProvider.NH\Comparers\EntityComparer.cs">
       <Link>Comparers\EntityComparer.cs</Link>
     </Compile>
-    <Compile Include="..\Breeze.ContextProvider.NH\Core\GlobalExceptionFilter.cs">
-      <Link>Core\GlobalExceptionFilter.cs</Link>
-    </Compile>
-    <Compile Include="..\Breeze.ContextProvider.NH\Core\QueryFilter.cs">
-      <Link>Core\QueryFilter.cs</Link>
-    </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\Core\QueryFns.cs">
       <Link>Core\QueryFns.cs</Link>
     </Compile>
@@ -209,6 +203,12 @@
     </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\Extensions\TypeExtensions.cs">
       <Link>Extensions\TypeExtensions.cs</Link>
+    </Compile>
+    <Compile Include="..\Breeze.ContextProvider.NH\Filters\BreezeQueryFilterAttribute.cs">
+      <Link>Filters\BreezeQueryFilterAttribute.cs</Link>
+    </Compile>
+    <Compile Include="..\Breeze.ContextProvider.NH\Filters\EntityErrorsFilterAttribute.cs">
+      <Link>Filters\EntityErrorsFilterAttribute.cs</Link>
     </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\IBreezeConfigurator.cs">
       <Link>IBreezeConfigurator.cs</Link>

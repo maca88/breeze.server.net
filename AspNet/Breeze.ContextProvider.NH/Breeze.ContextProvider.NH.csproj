@@ -178,7 +178,7 @@
     <Compile Include="..\..\AspNetCore\Breeze.Core\TypeFns.cs">
       <Link>TypeFns.cs</Link>
     </Compile>
-    <Compile Include="Core\QueryFilter.cs" />
+    <Compile Include="Filters\BreezeQueryFilterAttribute.cs" />
     <Compile Include="Core\QueryFns.cs" />
     <Compile Include="BreezeConfigurator.cs" />
     <Compile Include="Comparers\EntityComparer.cs" />
@@ -187,6 +187,7 @@
     <Compile Include="Extensions\MemberInfoExtensions.cs" />
     <Compile Include="Extensions\SessionFactoryExtensions.cs" />
     <Compile Include="Extensions\TypeExtensions.cs" />
+    <Compile Include="Filters\EntityErrorsFilterAttribute.cs" />
     <Compile Include="IBreezeConfigurator.cs" />
     <Compile Include="ICustomMemberConfiguration.cs" />
     <Compile Include="IMemberConfiguration.cs" />
@@ -244,7 +245,6 @@
     <None Include="app.config" />
     <None Include="Breeze.snk" />
     <None Include="packages.config" />
-    <None Include="PointlessArhitecture.Breeze.ContextProvider.NH.nuspec" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Breeze.ContextProvider\Breeze.ContextProvider.csproj">

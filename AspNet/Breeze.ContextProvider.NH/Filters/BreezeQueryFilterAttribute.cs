@@ -4,30 +4,36 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Formatting;
 using System.Reflection;
+using System.Web.Http;
 using System.Web.Http.Controllers;
 using System.Web.Http.Filters;
+using Breeze.ContextProvider.NH.Core;
 using Breeze.Core;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using NHibernate;
 using NHibernate.Linq;
 using QueryResult = Breeze.Core.QueryResult;
 
-namespace Breeze.ContextProvider.NH.Core
+namespace Breeze.ContextProvider.NH.Filters
 {
-    public class BreezeQueryFilterAttribute : ActionFilterAttribute
+    [AttributeUsage(AttributeTargets.Class,  Inherited = false)]
+    public class BreezeQueryFilterAttribute : ActionFilterAttribute, IControllerConfiguration
     {
-        public override void OnActionExecuting(HttpActionContext context)
+        private readonly EntityErrorsFilterAttribute _entityErrorsFilter = new EntityErrorsFilterAttribute();
+
+        /// <summary>
+        /// Initialize the Breeze controller with a single <see cref="MediaTypeFormatter"/> for JSON
+        /// and a single <see cref="IFilterProvider"/> for Breeze OData support
+        /// </summary>
+        public virtual void Initialize(HttpControllerSettings settings, HttpControllerDescriptor descriptor)
         {
-            context.ControllerContext.Configuration.Formatters.Clear();
-            context.ControllerContext.Configuration.Formatters.Add(GetJsonFormatter(context.Request));
+            settings.Services.Add(typeof(IFilterProvider), GetEntityErrorsFilterProvider(_entityErrorsFilter));
 
-            if (!context.ModelState.IsValid)
-            {
-                context.Response = context.Request.CreateResponse(HttpStatusCode.BadRequest, context.ModelState, GetJsonFormatter(context.Request));
-            }
+            // remove all formatters and add only the Breeze JsonFormatter
+            settings.Formatters.Clear();
+            settings.Formatters.Add(GetJsonFormatter(descriptor.Configuration));
         }
-
+        
         public override void OnActionExecuted(HttpActionExecutedContext context)
         {
             var qs = QueryFns.ExtractAndDecodeQueryString(context);
@@ -81,27 +87,32 @@ namespace Breeze.ContextProvider.NH.Core
                     Close(session);
                 }
                 
-                context.Response = context.Request.CreateResponse(HttpStatusCode.OK, qr, GetJsonFormatter(context.Request));
+                context.Response = context.Request.CreateResponse(HttpStatusCode.OK, qr);
             }
             
             base.OnActionExecuted(context);
         }
-        
+
+        protected virtual IFilterProvider GetEntityErrorsFilterProvider(EntityErrorsFilterAttribute entityErrorsFilter)
+        {
+            return new EntityErrorsFilterProvider(entityErrorsFilter);
+        }
+
         /// <summary>
         /// Return the Breeze-specific <see cref="MediaTypeFormatter"/> that formats
         /// content to JSON. This formatter must be tailored to work with Breeze clients. 
         /// </summary>
         /// <remarks>
-        /// By default returns the Breeze <see cref="WebApi2.JsonFormatter"/>.
+        /// By default returns the Breeze <see cref="JsonFormatter"/>.
         /// Override it to substitute a custom JSON formatter.
         /// </remarks>
-        protected virtual JsonMediaTypeFormatter GetJsonFormatter(HttpRequestMessage request)
+        protected virtual JsonMediaTypeFormatter GetJsonFormatter(HttpConfiguration configuration)
         {
             var formatter = JsonFormatter.Create();
             var jsonSerializer = formatter.SerializerSettings;
             if (!formatter.SerializerSettings.Converters.Any(o => o is NHibernateProxyJsonConverter))
                 jsonSerializer.Converters.Add(new NHibernateProxyJsonConverter());
-            jsonSerializer.ContractResolver = (IContractResolver)request.GetDependencyScope().GetService(typeof(NHibernateContractResolver));
+            jsonSerializer.ContractResolver = (IContractResolver)configuration.DependencyResolver.GetService(typeof(NHibernateContractResolver));
             /* Error handling is not needed anymore. NHibernateContractResolver will take care of non initialized properties*/
             //FIX: Still errors occurs
             jsonSerializer.Error = (sender, args) =>

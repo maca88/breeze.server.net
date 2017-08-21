@@ -210,6 +210,9 @@
     <Compile Include="..\Breeze.ContextProvider.NH\Filters\EntityErrorsFilterAttribute.cs">
       <Link>Filters\EntityErrorsFilterAttribute.cs</Link>
     </Compile>
+    <Compile Include="..\Breeze.ContextProvider.NH\Filters\MetadataToHttpResponseAttribute.cs">
+      <Link>Filters\MetadataToHttpResponseAttribute.cs</Link>
+    </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\IBreezeConfigurator.cs">
       <Link>IBreezeConfigurator.cs</Link>
     </Compile>

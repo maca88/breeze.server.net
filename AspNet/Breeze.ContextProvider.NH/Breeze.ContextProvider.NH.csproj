@@ -188,6 +188,7 @@
     <Compile Include="Extensions\SessionFactoryExtensions.cs" />
     <Compile Include="Extensions\TypeExtensions.cs" />
     <Compile Include="Filters\EntityErrorsFilterAttribute.cs" />
+    <Compile Include="Filters\MetadataToHttpResponseAttribute.cs" />
     <Compile Include="IBreezeConfigurator.cs" />
     <Compile Include="ICustomMemberConfiguration.cs" />
     <Compile Include="IMemberConfiguration.cs" />

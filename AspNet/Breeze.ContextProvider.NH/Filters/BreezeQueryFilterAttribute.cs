@@ -19,6 +19,7 @@ namespace Breeze.ContextProvider.NH.Filters
     [AttributeUsage(AttributeTargets.Class,  Inherited = false)]
     public class BreezeQueryFilterAttribute : ActionFilterAttribute, IControllerConfiguration
     {
+        private MetadataToHttpResponseAttribute _metadataFilter = new MetadataToHttpResponseAttribute();
         private readonly EntityErrorsFilterAttribute _entityErrorsFilter = new EntityErrorsFilterAttribute();
 
         /// <summary>
@@ -27,6 +28,7 @@ namespace Breeze.ContextProvider.NH.Filters
         /// </summary>
         public virtual void Initialize(HttpControllerSettings settings, HttpControllerDescriptor descriptor)
         {
+            settings.Services.Add(typeof(IFilterProvider), GetMetadataFilterProvider(_metadataFilter));
             settings.Services.Add(typeof(IFilterProvider), GetEntityErrorsFilterProvider(_entityErrorsFilter));
 
             // remove all formatters and add only the Breeze JsonFormatter
@@ -91,6 +93,18 @@ namespace Breeze.ContextProvider.NH.Filters
             }
             
             base.OnActionExecuted(context);
+        }
+
+        /// <summary>
+        /// Return the Metadata <see cref="IFilterProvider"/> for a Breeze Controller
+        /// </summary>
+        /// <remarks>
+        /// By default returns an <see cref="MetadataToHttpResponseAttribute"/>.
+        /// Override to substitute a custom provider.
+        /// </remarks>
+        protected virtual IFilterProvider GetMetadataFilterProvider(MetadataToHttpResponseAttribute metadataFilter)
+        {
+            return new MetadataFilterProvider(metadataFilter);
         }
 
         protected virtual IFilterProvider GetEntityErrorsFilterProvider(EntityErrorsFilterAttribute entityErrorsFilter)

@@ -35,11 +35,12 @@ namespace Breeze.ContextProvider.NH.Core
             }
             else
             {
-                throw new Exception("Unable to convert this endpoint to an IQueryable");
+                return null;
             }
+
             return queryable;
         }
-
+        
         public static string ExtractAndDecodeQueryString(HttpActionExecutedContext context)
         {
             var qs = context.Request.RequestUri.Query;

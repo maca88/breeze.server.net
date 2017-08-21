@@ -19,6 +19,9 @@ namespace Breeze.ContextProvider.NH.Core
     {
         public override void OnActionExecuting(HttpActionContext context)
         {
+            context.ControllerContext.Configuration.Formatters.Clear();
+            context.ControllerContext.Configuration.Formatters.Add(GetJsonFormatter(context.Request));
+
             if (!context.ModelState.IsValid)
             {
                 context.Response = context.Request.CreateResponse(HttpStatusCode.BadRequest, context.ModelState, GetJsonFormatter(context.Request));
@@ -38,6 +41,7 @@ namespace Breeze.ContextProvider.NH.Core
             if (queryable == null)
             {
                 base.OnActionExecuted(context);
+                return;
             }
 
             var eq = new EntityQuery(qs);
@@ -82,7 +86,7 @@ namespace Breeze.ContextProvider.NH.Core
             
             base.OnActionExecuted(context);
         }
-
+        
         /// <summary>
         /// Return the Breeze-specific <see cref="MediaTypeFormatter"/> that formats
         /// content to JSON. This formatter must be tailored to work with Breeze clients. 

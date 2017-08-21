@@ -178,7 +178,6 @@
     <Compile Include="..\..\AspNetCore\Breeze.Core\TypeFns.cs">
       <Link>TypeFns.cs</Link>
     </Compile>
-    <Compile Include="Core\GlobalExceptionFilter.cs" />
     <Compile Include="Core\QueryFilter.cs" />
     <Compile Include="Core\QueryFns.cs" />
     <Compile Include="BreezeConfigurator.cs" />
@@ -242,6 +241,7 @@
     <None Include="app.config" />
     <None Include="Breeze.snk" />
     <None Include="packages.config" />
+    <None Include="PointlessArhitecture.Breeze.ContextProvider.NH.nuspec" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Breeze.ContextProvider\Breeze.ContextProvider.csproj">

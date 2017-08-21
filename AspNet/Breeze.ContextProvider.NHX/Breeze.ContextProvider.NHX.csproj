@@ -76,6 +76,7 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="System.Net.Http.WebRequest" />
+    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Spatial, Version=5.6.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <Private>True</Private>
       <HintPath>..\packages\System.Spatial.5.6.0\lib\net40\System.Spatial.dll</HintPath>
@@ -95,14 +96,104 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\DynamicGenericTypeBuilder.cs">
+      <Link>DynamicGenericTypeBuilder.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\DynamicTypeInfo.cs">
+      <Link>DynamicTypeInfo.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\JsonSerializationFns.cs">
+      <Link>JsonSerializationFns.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\PropertySignature.cs">
+      <Link>PropertySignature.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\AndOrPredicate.cs">
+      <Link>Query\AndOrPredicate.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\AnyAllPredicate.cs">
+      <Link>Query\AnyAllPredicate.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\BaseBlock.cs">
+      <Link>Query\BaseBlock.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\BasePredicate.cs">
+      <Link>Query\BasePredicate.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\BinaryPredicate.cs">
+      <Link>Query\BinaryPredicate.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\DataType.cs">
+      <Link>Query\DataType.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\EntityQuery.cs">
+      <Link>Query\EntityQuery.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\EntityQueryExtensions.cs">
+      <Link>Query\EntityQueryExtensions.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\ExpandClause.cs">
+      <Link>Query\ExpandClause.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\FnBlock.cs">
+      <Link>Query\FnBlock.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\FnBlockToken.cs">
+      <Link>Query\FnBlockToken.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\IEntityType.cs">
+      <Link>Query\IEntityType.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\JsonHelper.cs">
+      <Link>Query\JsonHelper.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\LitBlock.cs">
+      <Link>Query\LitBlock.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\Operator.cs">
+      <Link>Query\Operator.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\OperatorType.cs">
+      <Link>Query\OperatorType.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\OrderByClause.cs">
+      <Link>Query\OrderByClause.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\PropBlock.cs">
+      <Link>Query\PropBlock.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\QueryBuilder.cs">
+      <Link>Query\QueryBuilder.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\QueryResult.cs">
+      <Link>Query\QueryResult.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\SelectClause.cs">
+      <Link>Query\SelectClause.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\Query\UnaryPredicate.cs">
+      <Link>Query\UnaryPredicate.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\TimeSpanConverter.cs">
+      <Link>TimeSpanConverter.cs</Link>
+    </Compile>
+    <Compile Include="..\..\AspNetCore\Breeze.Core\TypeFns.cs">
+      <Link>TypeFns.cs</Link>
+    </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\BreezeConfigurator.cs">
       <Link>BreezeConfigurator.cs</Link>
     </Compile>
-    <Compile Include="..\Breeze.ContextProvider.NH\BreezeNHControllerAttribute.cs">
-      <Link>BreezeNHControllerAttribute.cs</Link>
+    <Compile Include="..\Breeze.ContextProvider.NH\Comparers\EntityComparer.cs">
+      <Link>Comparers\EntityComparer.cs</Link>
     </Compile>
-    <Compile Include="..\Breeze.ContextProvider.NH\BreezeNHQueryableAttribute.cs">
-      <Link>BreezeNHQueryableAttribute.cs</Link>
+    <Compile Include="..\Breeze.ContextProvider.NH\Core\GlobalExceptionFilter.cs">
+      <Link>Core\GlobalExceptionFilter.cs</Link>
+    </Compile>
+    <Compile Include="..\Breeze.ContextProvider.NH\Core\QueryFilter.cs">
+      <Link>Core\QueryFilter.cs</Link>
+    </Compile>
+    <Compile Include="..\Breeze.ContextProvider.NH\Core\QueryFns.cs">
+      <Link>Core\QueryFns.cs</Link>
     </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\Extensions\DictionaryExtensions.cs">
       <Link>Extensions\DictionaryExtensions.cs</Link>
@@ -130,6 +221,9 @@
     </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\IModelConfiguration.cs">
       <Link>IModelConfiguration.cs</Link>
+    </Compile>
+    <Compile Include="..\Breeze.ContextProvider.NH\JsonFormatter.cs">
+      <Link>JsonFormatter.cs</Link>
     </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\Json\BreezeValueProvider.cs">
       <Link>Json\BreezeValueProvider.cs</Link>
@@ -241,9 +335,6 @@
     </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\NhQueryableInclude.cs">
       <Link>NhQueryableInclude.cs</Link>
-    </Compile>
-    <Compile Include="..\Breeze.ContextProvider.NH\NHQueryHelper.cs">
-      <Link>NHQueryHelper.cs</Link>
     </Compile>
     <Compile Include="..\Breeze.ContextProvider.NH\NHRelationshipFixer.cs">
       <Link>NHRelationshipFixer.cs</Link>

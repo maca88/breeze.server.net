@@ -765,7 +765,7 @@ namespace Breeze.ContextProvider.NH
             var syntheticProperties = session.SessionFactory.GetSyntheticProperties();
 
             // If id is still null try get from a unmapped values (synthetic properties)
-            if (!entityInfo.UnmappedValuesMap.ContainsKey(foreignKeyName) || syntheticProperties == null ||
+            if (entityInfo.UnmappedValuesMap == null || !entityInfo.UnmappedValuesMap.ContainsKey(foreignKeyName) || syntheticProperties == null ||
                 entityInfo.Entity == null)
             {
                 return id;

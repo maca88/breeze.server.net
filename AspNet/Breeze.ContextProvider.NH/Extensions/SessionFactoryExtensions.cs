@@ -29,9 +29,14 @@ namespace Breeze.ContextProvider.NH.Extensions
 
         public static List<NHSyntheticProperty> GetSyntheticProperties(this IClassMetadata metadata)
         {
+            if (metadata == null)
+            {
+                return null;
+            }
+
             var type = metadata.GetMappedClass(EntityMode.Poco);
             var key = SyntheticProperties.Keys.FirstOrDefault(o => o.GetClassMetadata(type) == metadata);
-            if (key == null)
+            if (key == null || !SyntheticProperties.ContainsKey(key) || !SyntheticProperties[key].ContainsKey(type))
             {
                 return null;
             }

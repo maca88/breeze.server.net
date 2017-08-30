@@ -782,8 +782,12 @@ namespace Breeze.ContextProvider.NH
             }
             // We have to convert the value in the propriate type
             id = entityInfo.UnmappedValuesMap[foreignKeyName];
-            // Here we first convert id to string so that we wont get exception like: Cannot convert from Int64 to Int32
-            id = TypeDescriptor.GetConverter(synColumn.PkType.ReturnedClass).ConvertFromInvariantString(id.ToString());
+
+            if (id != null)
+            {
+                // Here we first convert id to string so that we wont get exception like: Cannot convert from Int64 to Int32
+                id = TypeDescriptor.GetConverter(synColumn.PkType.ReturnedClass).ConvertFromInvariantString(id.ToString()); 
+            }
 
             return id;
         }

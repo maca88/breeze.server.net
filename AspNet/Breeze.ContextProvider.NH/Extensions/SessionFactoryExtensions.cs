@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using NHibernate;
 using NHibernate.Metadata;
 
@@ -17,6 +15,19 @@ namespace Breeze.ContextProvider.NH.Extensions
 
         public static void SetSyntheticProperties(this ISessionFactory sessionFactory, Dictionary<Type, List<NHSyntheticProperty>> dict)
         {
+            // merge properties from base classes
+            foreach (var type1 in dict.Keys)
+            {
+                var properties1 = dict[type1];
+
+                foreach (var type2 in dict.Keys.Where(x => x != type1 && x.IsSubclassOf(type1)))
+                {
+                    var properties2 = dict[type2];
+                    var propNames = properties2.Select(x => x.Name);
+                    dict[type2] = properties2.Union(properties1.Where(x => !propNames.Contains(x.Name))).ToList();
+                }
+            }
+
             SyntheticProperties[sessionFactory] = dict;
         }
 

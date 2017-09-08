@@ -15,12 +15,14 @@ namespace Breeze.ContextProvider.NH.Extensions
 
         public static void SetSyntheticProperties(this ISessionFactory sessionFactory, Dictionary<Type, List<NHSyntheticProperty>> dict)
         {
+            var types = dict.Keys.ToList();
+
             // merge properties from base classes
-            foreach (var type1 in dict.Keys)
+            foreach (var type1 in types)
             {
                 var properties1 = dict[type1];
 
-                foreach (var type2 in dict.Keys.Where(x => x != type1 && x.IsSubclassOf(type1)))
+                foreach (var type2 in types.Where(x => x != type1 && x.IsSubclassOf(type1)))
                 {
                     var properties2 = dict[type2];
                     var propNames = properties2.Select(x => x.Name);

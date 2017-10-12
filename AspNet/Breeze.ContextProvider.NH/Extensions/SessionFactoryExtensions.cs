@@ -47,7 +47,7 @@ namespace Breeze.ContextProvider.NH.Extensions
                 return null;
             }
 
-            var type = metadata.GetMappedClass(EntityMode.Poco);
+            var type = metadata.MappedClass;
             var key = SyntheticProperties.Keys.FirstOrDefault(o => o.GetClassMetadata(type) == metadata);
             if (key == null || !SyntheticProperties.ContainsKey(key) || !SyntheticProperties[key].ContainsKey(type))
             {

@@ -24,14 +24,14 @@ namespace Breeze.ContextProvider.NH
     /// </summary>
     public class NHMetadataBuilder
     {
-        private ISessionFactory _sessionFactory;
+        private readonly ISessionFactory _sessionFactory;
         private MetadataSchema _map;
         private List<Dictionary<string, object>> _typeList;
         private Dictionary<string, string> _resourceMap;
         private HashSet<string> _typeNames;
         private List<Dictionary<string, object>> _enumList;
-        private PluralizationService _pluralizationService;
-        private IBreezeConfigurator _breezeConfigurator;
+        private readonly PluralizationService _pluralizationService;
+        private readonly IBreezeConfigurator _breezeConfigurator;
         private Dictionary<Type, List<NHSyntheticProperty>> _syntheticProperties;
 
         public NHMetadataBuilder(ISessionFactory sessionFactory, IBreezeConfigurator breezeConfigurator)
@@ -81,7 +81,7 @@ namespace Breeze.ContextProvider.NH
 
             foreach (var meta in classMeta)
             {
-                if (!meta.GetMappedClass(EntityMode.Poco).FullName.StartsWith("System.")) //Hack for evners revisions as revision table get an IDictionary as mapped type
+                if (!meta.MappedClass.FullName.StartsWith("System.")) //Hack for evners revisions as revision table get an IDictionary as mapped type
                     AddClass(meta);
             }
             _sessionFactory.SetSyntheticProperties(_syntheticProperties);
@@ -112,7 +112,7 @@ namespace Breeze.ContextProvider.NH
         /// <param name="meta"></param>
         void AddClass(IClassMetadata meta)
         {
-            var type = meta.GetMappedClass(EntityMode.Poco);
+            var type = meta.MappedClass;
 
             // "Customer:#Breeze.Nhibernate.NorthwindIBModel": {
             var classKey = type.Name + ":#" + type.Namespace;

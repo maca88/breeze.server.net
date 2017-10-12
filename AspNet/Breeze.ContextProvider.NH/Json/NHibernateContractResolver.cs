@@ -309,7 +309,7 @@ namespace Breeze.ContextProvider.NH
             if (!NHibernateUtil.IsPropertyInitialized(entity, memberName))
                 return false;
             var metadata = _entitiesMetadata[entityType];
-            var propertyValue = metadata.GetPropertyValue(entity, memberName, EntityMode.Poco);
+            var propertyValue = metadata.GetPropertyValue(entity, memberName);
             return NHibernateUtil.IsInitialized(propertyValue);
         }
 
@@ -340,7 +340,7 @@ namespace Breeze.ContextProvider.NH
             {
                 if (!NHibernateUtil.IsPropertyInitialized(entity, member.Name))
                     return false;
-                var propertyValue = metadata.GetPropertyValue(entity, member.Name, EntityMode.Poco);
+                var propertyValue = metadata.GetPropertyValue(entity, member.Name);
                 return NHibernateUtil.IsInitialized(propertyValue);
             };
             if (jsonProperty.ShouldSerialize != null)

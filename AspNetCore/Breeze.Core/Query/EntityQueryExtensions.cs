@@ -55,10 +55,14 @@ namespace Breeze.Core {
     }
 
     public static IQueryable ApplyExpand(this EntityQuery eq, IQueryable queryable, Type eleType) {
-      if (eq.ExpandClause != null && IncludeMethod != null) {
-        eq.ExpandClause.PropertyPaths.ToList().ForEach(expand => {
-          queryable = (IQueryable)IncludeMethod.Invoke(null, new object[] { queryable, expand.Replace("/", ".") });
-        });
+      if (eq.ExpandClause != null && IncludeMethod != null)
+      {
+        var expands = eq.ExpandClause.PropertyPaths.Select(x => x.Replace("/", ".")).Where(x => !eq.ExpandClause.PropertyPaths.Any(e => e.StartsWith($"{x}."))).ToList();
+
+        foreach (var expand in expands)
+        {
+          queryable = (IQueryable)IncludeMethod.Invoke(null, new object[] { queryable, expand });
+        }
       }
       return queryable;
     }

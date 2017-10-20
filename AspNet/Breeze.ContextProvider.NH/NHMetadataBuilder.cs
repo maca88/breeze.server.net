@@ -504,6 +504,11 @@ namespace Breeze.ContextProvider.NH
             string[] columnNames = GetPropertyColumnNames(containingPersister, propName, propType);
             nmap.Add("associationName", GetAssociationName(containingType.Name, relatedEntityType.Name, columnNames));
 
+            var propertyIndex = containingPersister.PropertyNames.ToList().IndexOf(propName);
+            var cascadeStyle = containingPersister.PropertyCascadeStyles[propertyIndex];
+            nmap.Add("hasOrphanDelete", cascadeStyle.HasOrphanDelete);
+
+
             string[] fkNames = null;
             var joinable = propType.GetAssociatedJoinable((ISessionFactoryImplementor)this._sessionFactory);
             var memberConfiguration = GetMemberConfiguration(containingType, propName);

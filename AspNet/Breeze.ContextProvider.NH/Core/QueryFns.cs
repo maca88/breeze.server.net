@@ -10,7 +10,7 @@ namespace Breeze.ContextProvider.NH.Core
 {
     public static class QueryFns
     {
-        private static Regex QueryRegex = new Regex(@"(\{.*})&", RegexOptions.Compiled);
+        private static Regex QueryRegex = new Regex(@"(\{.*})&?", RegexOptions.Compiled);
 
         public static IQueryable ExtractQueryable(HttpActionExecutedContext context)
         {

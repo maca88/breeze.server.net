@@ -15,7 +15,7 @@ namespace Breeze.ContextProvider.NH.Core
         public static IQueryable ExtractQueryable(HttpActionExecutedContext context)
         {
             object result;
-            if (!context.Response.TryGetContentValue(out result))
+            if (context.Response == null || !context.Response.TryGetContentValue(out result))
             {
                 return null;
             }

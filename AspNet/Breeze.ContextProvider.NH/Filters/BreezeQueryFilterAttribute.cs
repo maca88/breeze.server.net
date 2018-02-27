@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Formatting;
@@ -12,6 +14,7 @@ using Breeze.Core;
 using Newtonsoft.Json.Serialization;
 using NHibernate;
 using NHibernate.Linq;
+using NHibernate.Util;
 using QueryResult = Breeze.Core.QueryResult;
 
 namespace Breeze.ContextProvider.NH.Filters
@@ -21,6 +24,23 @@ namespace Breeze.ContextProvider.NH.Filters
     {
         private MetadataToHttpResponseAttribute _metadataFilter = new MetadataToHttpResponseAttribute();
         private readonly EntityErrorsFilterAttribute _entityErrorsFilter = new EntityErrorsFilterAttribute();
+        private static readonly MethodInfo ToFutureMethod;
+        private static readonly MethodInfo ToFutureValueMethod;
+        private static readonly MethodInfo GetCountExpressionMethod;
+
+        static BreezeQueryFilterAttribute()
+        {
+            ToFutureMethod =
+                ReflectHelper.GetMethodDefinition(() => LinqExtensionMethods.ToFuture<object>(null))
+                    .GetGenericMethodDefinition();
+            ToFutureValueMethod =
+                ReflectHelper.GetMethodDefinition(() => LinqExtensionMethods.ToFutureValue<object, object>(null, null))
+                    .GetGenericMethodDefinition();
+            GetCountExpressionMethod = ReflectHelper.GetMethodDefinition<BreezeQueryFilterAttribute>(o => o.GetCountExpression<object>())
+                .GetGenericMethodDefinition();
+        }
+
+        public bool UseFuture { get; set; }
 
         /// <summary>
         /// Initialize the Breeze controller with a single <see cref="MediaTypeFormatter"/> for JSON
@@ -62,9 +82,19 @@ namespace Breeze.ContextProvider.NH.Filters
             var originalQueryable = queryable;
             queryable = eq.ApplyWhere(queryable, eleType);
 
+            IFutureValue<int> inlineCountFuture = null;
             if (eq.IsInlineCountEnabled)
             {
-                inlineCount = (int)Queryable.Count((dynamic)queryable);
+                if (UseFuture)
+                {
+                    var countExpr = GetCountExpressionMethod.MakeGenericMethod(eleType).Invoke(this, new object[0]);
+                    inlineCountFuture = (IFutureValue<int>)ToFutureValueMethod.MakeGenericMethod(eleType, typeof(int))
+                        .Invoke(null, new[] {queryable, countExpr});
+                }
+                else
+                {
+                    inlineCount = (int)Queryable.Count((dynamic)queryable);
+                }
             }
 
             queryable = eq.ApplyOrderBy(queryable, eleType);
@@ -80,8 +110,19 @@ namespace Breeze.ContextProvider.NH.Filters
                 // execute the DbQueries here, so that any exceptions thrown can be properly returned.
                 // if we wait to have the query executed within the serializer, some exceptions will not
                 // serialize properly.
-                var listResult = Enumerable.ToList((dynamic)queryable);
-                var qr = new QueryResult(listResult, inlineCount);
+
+                dynamic listResult;
+                if (UseFuture)
+                {
+                    var future = ToFutureMethod.MakeGenericMethod(eleType).Invoke(null, new object[]{ queryable });
+                    listResult = Enumerable.ToList((dynamic)future.GetType().GetMethod("GetEnumerable").Invoke(future, new object[0]));
+                }
+                else
+                {
+                    listResult = Enumerable.ToList((dynamic)queryable);
+                }
+
+                var qr = new QueryResult(listResult, inlineCountFuture?.Value ?? inlineCount);
                 
                 var session = GetSession(queryable);
                 if (session != null)
@@ -93,6 +134,11 @@ namespace Breeze.ContextProvider.NH.Filters
             }
             
             base.OnActionExecuted(context);
+        }
+
+        private Expression<Func<IQueryable<T>, int>> GetCountExpression<T>()
+        {
+            return q => q.Count();
         }
 
         /// <summary>

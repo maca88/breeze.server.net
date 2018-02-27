@@ -54,18 +54,12 @@ namespace Breeze.ContextProvider.NH.Core
             }
 
             var match = QueryRegex.Match(q);
-
             if (match.Success)
             {
                 q = match.Groups[1].Captures[0].Value;
+                return q == "{}" ? null : q;
             }
-
-            if (q == "{}")
-            {
-                return null;
-            }
-
-            return q;
+            return null;
         }
     }
 }

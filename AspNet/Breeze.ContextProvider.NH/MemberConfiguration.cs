@@ -85,6 +85,12 @@ namespace Breeze.ContextProvider.NH
             return this;
         }
 
+        public new IMemberConfiguration<TModel, TType> LazyLoad(bool value = true)
+        {
+            base.LazyLoad = value;
+            return this;
+        }
+
         public IMemberConfiguration<TModel, TType> Ignore()
         {
             Ignored = true;
@@ -180,20 +186,19 @@ namespace Breeze.ContextProvider.NH
             MemberInfo = memberInfo;
         }
 
-        public Dictionary<string, object> Data { get; private set; } 
+        public Dictionary<string, object> Data { get; } 
 
         public MemberInfo MemberInfo { get; set; }
 
-        public string MemberName
-        {
-            get { return MemberInfo == null ? null : MemberInfo.Name; }
-        }
+        public string MemberName => MemberInfo == null ? null : MemberInfo.Name;
 
         public Type MemberType { get; set; }
 
         public bool? Ignored { get; set; }
 
         public Type DeclaringType { get; set; }
+
+        public bool? LazyLoad { get; set; }
 
         #region Serialization properties
 
@@ -221,10 +226,7 @@ namespace Breeze.ContextProvider.NH
 
         #endregion
 
-        public bool IsCustom
-        {
-            get { return MemberInfo == null; }
-        }
+        public bool IsCustom => MemberInfo == null;
 
         private MemberInfo FindMemeberInfo(string name)
         {
@@ -243,8 +245,10 @@ namespace Breeze.ContextProvider.NH
 
         public override bool Equals(object obj)
         {
-            var memberRule = obj as MemberConfiguration;
-            if (memberRule == null) return false;
+            if (!(obj is MemberConfiguration memberRule))
+            {
+                return false;
+            }
             return ReferenceEquals(memberRule, this) || (MemberInfo != null && ReferenceEquals(memberRule.MemberInfo, MemberInfo));
         }
     }

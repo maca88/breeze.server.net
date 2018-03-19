@@ -189,8 +189,8 @@ namespace Breeze.ContextProvider.NH
             if (!removeMode || !clientEntityObjects.ContainsKey(entityInfo)) return false;
 
             var clientEntity = clientEntityObjects[entityInfo];
-            var id = meta.GetIdentifier(entityInfo.Entity, EntityMode.Poco);
-            meta.SetIdentifier(clientEntity, id, EntityMode.Poco);
+            var id = meta.GetIdentifier(entityInfo.Entity);
+            meta.SetIdentifier(clientEntity, id);
 
             //We have to set the properties from the client object
             var propNames = meta.PropertyNames;
@@ -208,7 +208,7 @@ namespace Breeze.ContextProvider.NH
                     var compPropNames = compType.PropertyNames;
                     var compPropTypes = compType.Subtypes;
                     var component = GetPropertyValue(meta, entityInfo.Entity, propName);
-                    var compValues = compType.GetPropertyValues(component, EntityMode.Poco);
+                    var compValues = compType.GetPropertyValues(component);
                     for (var j = 0; j < compPropNames.Length; j++)
                     {
                         var compPropType = compPropTypes[j];
@@ -216,12 +216,12 @@ namespace Breeze.ContextProvider.NH
                         compValues[j] = null;
                     }
                     var clientCompVal = GetPropertyValue(meta, clientEntity, propName);
-                    compType.SetPropertyValues(clientCompVal, compValues, EntityMode.Poco);
+                    compType.SetPropertyValues(clientCompVal, compValues);
                 }
                 else
                 {
-                    var val = meta.GetPropertyValue(entityInfo.Entity, propName, EntityMode.Poco);
-                    meta.SetPropertyValue(clientEntity, propName, val, EntityMode.Poco);
+                    var val = meta.GetPropertyValue(entityInfo.Entity, propName);
+                    meta.SetPropertyValue(clientEntity, propName, val);
                 }
             }
             // TODO: update unmapped properties
@@ -231,16 +231,16 @@ namespace Breeze.ContextProvider.NH
 
         private bool SetupEntityInfoForSaving(Type entityType, EntityInfo entityInfo, IClassMetadata meta)
         {
-            var id = meta.GetIdentifier(entityInfo.Entity, EntityMode.Poco);
+            var id = meta.GetIdentifier(entityInfo.Entity);
             var sessionImpl = session.GetSessionImplementation();
             object dbEntity;
             string[] propNames;
 
             if (entityInfo.EntityState == EntityState.Added)
             {
-                //meta.Instantiate(id, EntityMode.Poco) -> Instantiate method can create a proxy when formulas are present. Saving non persistent proxies will throw an exception
+                //meta.Instantiate(id) -> Instantiate method can create a proxy when formulas are present. Saving non persistent proxies will throw an exception
                 dbEntity = Activator.CreateInstance(entityType, true);
-                meta.SetIdentifier(dbEntity, id, EntityMode.Poco);
+                meta.SetIdentifier(dbEntity, id);
             }
             else
             {
@@ -265,17 +265,17 @@ namespace Breeze.ContextProvider.NH
                         }
                         else
                         {
-                            oldKeyValues[i] = componentType.GetPropertyValue(entityInfo.Entity, i, EntityMode.Poco);
+                            oldKeyValues[i] = componentType.GetPropertyValue(entityInfo.Entity, i);
                         }
                     }
 
-                    componentType.SetPropertyValues(dbEntity, oldKeyValues, EntityMode.Poco);
+                    componentType.SetPropertyValues(dbEntity, oldKeyValues);
                     dbEntity = sessionImpl.ImmediateLoad(entityType.FullName, dbEntity);
 
                     // As NHibernate does not support updating the primary key we need to do it manually using hql
                     if (keyModified)
                     {
-                        var newKeyValues = componentType.GetPropertyValues(entityInfo.Entity, EntityMode.Poco);
+                        var newKeyValues = componentType.GetPropertyValues(entityInfo.Entity);
                         var parameters = new Dictionary<string, KeyValuePair<object, IType>>();
                         var setStatement = "set ";
                         var whereStatement = "where ";
@@ -306,7 +306,7 @@ namespace Breeze.ContextProvider.NH
                         {
                             throw new InvalidOperationException(string.Format("Query for updating composite key updated '{0}' rows instead of '1'", count));
                         }
-                        componentType.SetPropertyValues(dbEntity, componentType.GetPropertyValues(entityInfo.Entity, EntityMode.Poco), EntityMode.Poco);
+                        componentType.SetPropertyValues(dbEntity, componentType.GetPropertyValues(entityInfo.Entity));
                     }
                 }
                 else
@@ -359,13 +359,13 @@ namespace Breeze.ContextProvider.NH
                     var compType = (ComponentType) propType;
                     var componentVal = GetPropertyValue(meta, entityInfo.Entity, propName);
                     var dbComponentVal = GetPropertyValue(meta, dbEntity, propName);
-                    var compPropsVal = compType.GetPropertyValues(componentVal, EntityMode.Poco);
-                    compType.SetPropertyValues(dbComponentVal, compPropsVal, EntityMode.Poco);
+                    var compPropsVal = compType.GetPropertyValues(componentVal);
+                    compType.SetPropertyValues(dbComponentVal, compPropsVal);
                 }
                 else
                 {
-                    var val = meta.GetPropertyValue(entityInfo.Entity, propName, EntityMode.Poco);
-                    meta.SetPropertyValue(dbEntity, propName, val, EntityMode.Poco);
+                    var val = meta.GetPropertyValue(entityInfo.Entity, propName);
+                    meta.SetPropertyValue(dbEntity, propName, val);
                 }
             }
             typeof(EntityInfo).GetProperty("Entity").SetValue(entityInfo, dbEntity);
@@ -412,7 +412,7 @@ namespace Breeze.ContextProvider.NH
                 }
                 else if (propType.IsAssociationType && propType.IsCollectionType && removeMode)
                 {
-                    meta.SetPropertyValue(entityInfo.Entity, propNames[i], null, EntityMode.Poco);
+                    meta.SetPropertyValue(entityInfo.Entity, propNames[i], null);
                 }
             }
         }
@@ -486,14 +486,14 @@ namespace Breeze.ContextProvider.NH
                     continue;
 
                 var elmType = colType.GetElementType(session.GetSessionImplementation().Factory);
-                if (!elmType.ReturnedClass.IsAssignableFrom(childMeta.GetMappedClass(EntityMode.Poco)))
+                if (!elmType.ReturnedClass.IsAssignableFrom(childMeta.MappedClass))
                     continue;
  
                 var parentEntity = GetRelatedEntity(propertyName, childEntityType, childEntityInfo, childMeta);
                 if (parentEntity == null)
                     return false;
 
-                var coll = parentMeta.GetPropertyValue(parentEntity, propName, EntityMode.Poco) as IEnumerable;
+                var coll = parentMeta.GetPropertyValue(parentEntity, propName) as IEnumerable;
 
                 if (coll == null) //Should happen only if the parent entity is not in db
                 {
@@ -555,7 +555,7 @@ namespace Breeze.ContextProvider.NH
                                     }
                                 }
                             }
-                            childMeta.SetPropertyValue(childEntityInfo.Entity, propertyName, null, EntityMode.Poco);//Remove relation on both sides
+                            childMeta.SetPropertyValue(childEntityInfo.Entity, propertyName, null);//Remove relation on both sides
                             return removed;
                         case EntityState.Added:
                             var addMethod = collType.GetMethod("Add") ??
@@ -599,7 +599,7 @@ namespace Breeze.ContextProvider.NH
                     {
                         // get the value of the component's subproperties
                         component = GetPropertyValue(meta, entityInfo.Entity, propName);
-                        compValues = compType.GetPropertyValues(component, EntityMode.Poco);
+                        compValues = compType.GetPropertyValues(component);
                     }
                     if (compValues[j] == null)
                     {
@@ -621,7 +621,7 @@ namespace Breeze.ContextProvider.NH
             }
             if (isChanged)
             {
-                compType.SetPropertyValues(component, compValues, EntityMode.Poco);
+                compType.SetPropertyValues(component, compValues);
             }
 
         }
@@ -640,10 +640,10 @@ namespace Breeze.ContextProvider.NH
             {
                 string foreignKeyName = FindForeignKey(propName, meta);
                 object id = GetForeignKeyValue(entityInfo, meta, foreignKeyName);
-                meta.SetPropertyValue(entity, propName, null, EntityMode.Poco);
+                meta.SetPropertyValue(entity, propName, null);
                 if (id != null)
                 {
-                    meta.SetPropertyValue(entity, foreignKeyName, id, EntityMode.Poco); //Set the foreigenkey as the foreign key property may be computed (resets when the relation is set)
+                    meta.SetPropertyValue(entity, foreignKeyName, id); //Set the foreigenkey as the foreign key property may be computed (resets when the relation is set)
                 }
 
                 return;
@@ -654,7 +654,7 @@ namespace Breeze.ContextProvider.NH
             var relatedEntity = GetRelatedEntity(propName, propType, entityInfo, meta);
 
             //if (relatedEntity != null) Unset if the synthetic property is not set
-            meta.SetPropertyValue(entity, propName, relatedEntity, EntityMode.Poco);
+            meta.SetPropertyValue(entity, propName, relatedEntity);
         }
 
         /// <summary>
@@ -742,9 +742,9 @@ namespace Breeze.ContextProvider.NH
             var entity = entityInfo.Entity;
             object id = null;
             if (foreignKeyName == meta.IdentifierPropertyName)
-                id = meta.GetIdentifier(entity, EntityMode.Poco);
+                id = meta.GetIdentifier(entity);
             else if (meta.PropertyNames.Contains(foreignKeyName))
-                id = meta.GetPropertyValue(entity, foreignKeyName, EntityMode.Poco);
+                id = meta.GetPropertyValue(entity, foreignKeyName);
             else if (meta.IdentifierType.IsComponentType)
             {
                 // compound key
@@ -752,14 +752,41 @@ namespace Breeze.ContextProvider.NH
                 var index = Array.IndexOf<string>(compType.PropertyNames, foreignKeyName);
                 if (index >= 0)
                 {
-                    var idComp = meta.GetIdentifier(entity, EntityMode.Poco);
-                    id = compType.GetPropertyValue(idComp, index, EntityMode.Poco);
+                    var idComp = meta.GetIdentifier(entity);
+                    id = compType.GetPropertyValue(idComp, index);
                 }
             }
 
             if (id == null && entityInfo.EntityState == EntityState.Deleted)
             {
                 entityInfo.OriginalValuesMap.TryGetValue(foreignKeyName, out id);
+            }
+
+            var syntheticProperties = session.SessionFactory.GetSyntheticProperties();
+
+            // If id is still null try get from a unmapped values (synthetic properties)
+            if (entityInfo.UnmappedValuesMap == null || !entityInfo.UnmappedValuesMap.ContainsKey(foreignKeyName) || syntheticProperties == null ||
+                entityInfo.Entity == null)
+            {
+                return id;
+            }
+            var entityType = entityInfo.Entity.GetType();
+            if (!syntheticProperties.ContainsKey(entityType))
+            {
+                return id;
+            }
+            var synColumn = syntheticProperties[entityType].FirstOrDefault(o => o.Name == foreignKeyName);
+            if (synColumn == null)
+            {
+                return id;
+            }
+            // We have to convert the value in the propriate type
+            id = entityInfo.UnmappedValuesMap[foreignKeyName];
+
+            if (id != null)
+            {
+                // Here we first convert id to string so that we wont get exception like: Cannot convert from Int64 to Int32
+                id = TypeDescriptor.GetConverter(synColumn.PkType.ReturnedClass).ConvertFromInvariantString(id.ToString()); 
             }
 
             return id;
@@ -775,9 +802,9 @@ namespace Breeze.ContextProvider.NH
         private object GetPropertyValue(IClassMetadata meta, object entity, string propName)
         {
             if (propName == null || propName == meta.IdentifierPropertyName)
-                return meta.GetIdentifier(entity, EntityMode.Poco);
+                return meta.GetIdentifier(entity);
             else
-                return meta.GetPropertyValue(entity, propName, EntityMode.Poco);
+                return meta.GetPropertyValue(entity, propName);
         }
 
 
@@ -797,7 +824,7 @@ namespace Breeze.ContextProvider.NH
                 foreach (var entityInfo in entityInfoList)
                 {
                     var entity = entityInfo.Entity;
-                    var id = meta.GetIdentifier(entity, EntityMode.Poco);
+                    var id = meta.GetIdentifier(entity);
                     if (id != null && entityIdString.Equals(id.ToString()))
                         return entityInfo;
                 }

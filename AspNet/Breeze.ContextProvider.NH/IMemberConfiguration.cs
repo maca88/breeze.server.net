@@ -42,6 +42,8 @@ namespace Breeze.ContextProvider.NH
         Func<object, IMemberConfiguration, object, object> SerializeFunc { get; set; }
 
         Func<object, IMemberConfiguration, object, object> DeserializeFunc { get; set; }
+
+        bool? LazyLoad { get; set; }
     }
 
     public interface IMemberConfiguration<TModel, TType>
@@ -75,5 +77,7 @@ namespace Breeze.ContextProvider.NH
         IMemberConfiguration<TModel, TType> ShouldSerialize(Func<TModel, bool> conditionFunc);
 
         IMemberConfiguration<TModel, TType> ShouldDeserialize(Func<TModel, bool> conditionFunc);
+
+        IMemberConfiguration<TModel, TType> LazyLoad(bool value = true);
     }
 }

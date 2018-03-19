@@ -3,16 +3,19 @@ using System.Collections;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Web.Http.Filters;
 
 namespace Breeze.ContextProvider.NH.Core
 {
     public static class QueryFns
     {
+        private static Regex QueryRegex = new Regex(@"(\{.*})&?", RegexOptions.Compiled);
+
         public static IQueryable ExtractQueryable(HttpActionExecutedContext context)
         {
             object result;
-            if (!context.Response.TryGetContentValue(out result))
+            if (context.Response == null || !context.Response.TryGetContentValue(out result))
             {
                 return null;
             }
@@ -49,21 +52,14 @@ namespace Breeze.ContextProvider.NH.Core
             {
                 return null;
             }
-            var endIx = q.IndexOf('&');
-            if (endIx > 1)
-            {
-                q = q.Substring(1, endIx - 1);
-            }
-            else
-            {
-                q = q.Substring(1);
-            }
-            if (q == "{}")
-            {
-                return null;
-            }
 
-            return q;
+            var match = QueryRegex.Match(q);
+            if (match.Success)
+            {
+                q = match.Groups[1].Captures[0].Value;
+                return q == "{}" ? null : q;
+            }
+            return null;
         }
     }
 }

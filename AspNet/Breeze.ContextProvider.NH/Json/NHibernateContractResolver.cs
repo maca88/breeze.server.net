@@ -26,7 +26,7 @@ namespace Breeze.ContextProvider.NH
     /// </summary>
     public class NHibernateContractResolver : DefaultContractResolver
     {
-        private Dictionary<Type, IClassMetadata> entitiesMetadata = new Dictionary<Type, IClassMetadata>();
+        private Dictionary<Type, IClassMetadata> _entitiesMetadata = new Dictionary<Type, IClassMetadata>();
 
         private static readonly FieldInfo DefaultContractResolverStateNameTableField;
         private static readonly MethodInfo PropertyNameTableAddMethod;
@@ -58,7 +58,7 @@ namespace Breeze.ContextProvider.NH
         {
             var copy = new NHibernateContractResolver(_getMetadataFunc, _breezeConfigurator)
             {
-                entitiesMetadata = entitiesMetadata
+                _entitiesMetadata = _entitiesMetadata
             };
             return copy;
         } 
@@ -95,10 +95,10 @@ namespace Breeze.ContextProvider.NH
                 throw new JsonSerializationException("Null collection of seralizable members returned.");
 
             var properties = new JsonPropertyCollection(type);
-
+            var modelConfiguration = _breezeConfigurator.GetModelConfiguration(type);
             foreach (var member in members)
             {
-                var property = CreateProperty(type, member, memberSerialization);
+                var property = CreateProperty(type, member, memberSerialization, modelConfiguration);
 
                 if (property != null)
                 {
@@ -111,6 +111,22 @@ namespace Breeze.ContextProvider.NH
                     }
 
                     properties.AddProperty(property);
+                }
+            }
+
+            var syntheticPoperties = _getMetadataFunc(type).GetSyntheticProperties();
+            if (syntheticPoperties != null && syntheticPoperties.Any())
+            {
+                foreach (var syntheticProp in syntheticPoperties)
+                {
+                    properties.Add(new JsonProperty
+                    {
+                        Readable = true,
+                        Writable = true,
+                        PropertyName = syntheticProp.Name,
+                        PropertyType = syntheticProp.PkType.ReturnedClass,
+                        ValueProvider = new NHSyntheticPropertyValueProvider(syntheticProp)
+                    });
                 }
             }
 
@@ -145,7 +161,7 @@ namespace Breeze.ContextProvider.NH
                 var metadata = _getMetadataFunc(type);
                 if (metadata != null)
                 {
-                    entitiesMetadata[type] = metadata;
+                    _entitiesMetadata[type] = metadata;
                 }
             }
             ResolvedTypes.Add(type.FullName);
@@ -180,9 +196,9 @@ namespace Breeze.ContextProvider.NH
                 ConfigureProperty(property, memberRule);
             }
 
-            if (!entitiesMetadata.ContainsKey(type)) 
+            if (!_entitiesMetadata.ContainsKey(type)) 
                 return;
-            var entityMetadata = entitiesMetadata[type];
+            var entityMetadata = _entitiesMetadata[type];
             var propNames = new HashSet<string>(entityMetadata.PropertyNames);
             if (entityMetadata.HasIdentifierProperty)
             {
@@ -222,10 +238,10 @@ namespace Breeze.ContextProvider.NH
         /// <param name="memberSerialization"></param>
         /// <param name="type"></param>
         /// <returns></returns>
-        protected JsonProperty CreateProperty(Type type, MemberInfo member, MemberSerialization memberSerialization)
+        protected JsonProperty CreateProperty(Type type, MemberInfo member, MemberSerialization memberSerialization, IModelConfiguration modelConfiguration)
         {
             var property = CreateProperty(member, memberSerialization);
-            SetShouldSerializeProperty(type, property, member);
+            SetShouldSerializeProperty(type, property, member, modelConfiguration);
             return property;
         }
 
@@ -288,28 +304,24 @@ namespace Breeze.ContextProvider.NH
 
         public bool IsPropertyInitialized(Type entityType, object entity, string memberName)
         {
-            if (!entitiesMetadata.ContainsKey(entityType))
+            if (!_entitiesMetadata.ContainsKey(entityType))
                 return true;
             if (!NHibernateUtil.IsPropertyInitialized(entity, memberName))
                 return false;
-            var metadata = entitiesMetadata[entityType];
-            var propertyValue = metadata.GetPropertyValue(entity, memberName, EntityMode.Poco);
+            var metadata = _entitiesMetadata[entityType];
+            var propertyValue = metadata.GetPropertyValue(entity, memberName);
             return NHibernateUtil.IsInitialized(propertyValue);
         }
 
-        private void SetShouldSerializeProperty(Type type, JsonProperty jsonProperty, MemberInfo member)
+        private void SetShouldSerializeProperty(Type type, JsonProperty jsonProperty, MemberInfo member, IModelConfiguration modelConfiguration)
         {
             if (type == null) 
                 return;
 
-            if (type.IsInterface)
-            {
-                
-            }
             //Skip if type is not an entity
-            if (!entitiesMetadata.ContainsKey(type))
+            if (!_entitiesMetadata.ContainsKey(type))
                 return;
-            var metadata = entitiesMetadata[type];
+            var metadata = _entitiesMetadata[type];
             var propIdx = metadata.PropertyNames.ToList().IndexOf(member.Name);
             //Skip non mapped properties
             if (propIdx < 0)
@@ -319,18 +331,26 @@ namespace Breeze.ContextProvider.NH
             //Skip properties that are not collection, association and lazy
             if (!propType.IsCollectionType && !propType.IsAssociationType && !lazyProp)
                 return;
+
+            modelConfiguration.MemberConfigurations.TryGetValue(member.Name, out var memberConfiguration);
+            var canLazyLoad = memberConfiguration?.LazyLoad == true;
             //Define and set the predicate for check property initialization
-            Predicate<object> predicate = entity =>
+            bool Predicate(object entity)
             {
+                if (canLazyLoad)
+                {
+                    return true;
+                }
                 if (!NHibernateUtil.IsPropertyInitialized(entity, member.Name))
                     return false;
-                var propertyValue = metadata.GetPropertyValue(entity, member.Name, EntityMode.Poco);
+                var propertyValue = metadata.GetPropertyValue(entity, member.Name);
                 return NHibernateUtil.IsInitialized(propertyValue);
-            };
+            }
+
             if (jsonProperty.ShouldSerialize != null)
-                jsonProperty.ShouldSerialize = o => predicate(o) && jsonProperty.ShouldSerialize(o);
+                jsonProperty.ShouldSerialize = o => Predicate(o) && jsonProperty.ShouldSerialize(o);
             else
-                jsonProperty.ShouldSerialize = predicate;
+                jsonProperty.ShouldSerialize = Predicate;
         }
     }
 }

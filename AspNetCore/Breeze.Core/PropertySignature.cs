@@ -5,93 +5,144 @@ using System.Linq.Expressions;
 using System.Collections.Generic;
 
 
-namespace Breeze.Core {
-
-  public class PropertySignature {
-    public PropertySignature(Type instanceType, String propertyPath) {
-      InstanceType = instanceType;
-      PropertyPath = propertyPath;
-      Properties = GetProperties(InstanceType, PropertyPath).ToList();
-    }
-
-    public static bool IsProperty(Type instanceType, String propertyPath) {
-      return GetProperties(instanceType, propertyPath, false).Any(pi => pi != null);
-    }
-
-    public Type InstanceType { get; private set; }
-    public String PropertyPath { get; private set; }
-    public List<PropertyInfo> Properties { get; private set; }
-
-    public String Name {
-      get { return Properties.Select(p => p.Name).ToAggregateString("_"); }
-    }
-
-    public Type ReturnType {
-      get { return Properties.Last().PropertyType; }
-    }
-
-    // returns null for scalar properties
-    public Type ElementType {
-      get { return TypeFns.GetElementType(ReturnType); }
-
-    }
-
-    public bool IsDataProperty {
-      get { return TypeFns.IsPredefinedType(ReturnType) || TypeFns.IsEnumType(ReturnType); }
-    }
-
-    public bool IsNavigationProperty {
-      get { return !IsDataProperty; }
-    }
-
-
-
-    // returns an IEnumerable<PropertyInfo> with nulls if invalid and throwOnError = true
-    public static IEnumerable<PropertyInfo> GetProperties(Type instanceType, String propertyPath, bool throwOnError = true) {
-      var propertyNames = propertyPath.Split('.');
-
-      var nextInstanceType = instanceType;
-      foreach (var propertyName in propertyNames) {
-        var property = GetProperty(nextInstanceType, propertyName, throwOnError);
-        if (property != null) {
-          yield return property;
-
-          nextInstanceType = property.PropertyType;
-        } else {
-          break;
+namespace Breeze.Core
+{
+    public class PropertySignature
+    {
+        public PropertySignature(Type instanceType, String propertyPath)
+        {
+            InstanceType = instanceType;
+            PropertyPath = propertyPath;
+            Properties = GetProperties(InstanceType, PropertyPath).ToList();
         }
-      }
-    }
 
-    private static PropertyInfo GetProperty(Type instanceType, String propertyName, bool throwOnError = true) {
-      var propertyInfo = (PropertyInfo)TypeFns.FindPropertyOrField(instanceType, propertyName,
-        BindingFlags.Instance | BindingFlags.DeclaredOnly | BindingFlags.Public);
-      if (propertyInfo == null) {
-        if (throwOnError) {
-          var msg = String.Format("Unable to locate property '{0}' on type '{1}'.", propertyName, instanceType);
-          throw new Exception(msg);
-        } else {
-          return null;
+        public static bool IsProperty(Type instanceType, String propertyPath)
+        {
+            return GetProperties(instanceType, propertyPath, false).Any(pi => pi != null);
         }
-      }
-      return propertyInfo;
+
+        public Type InstanceType { get; private set; }
+        public String PropertyPath { get; private set; }
+        public List<PropertyInfo> Properties { get; private set; }
+
+        public String Name
+        {
+            get { return Properties.Select(p => p.Name).ToAggregateString("_"); }
+        }
+
+        public Type ReturnType
+        {
+            get { return Properties.Last().PropertyType; }
+        }
+
+        // returns null for scalar properties
+        public Type ElementType
+        {
+            get { return TypeFns.GetElementType(ReturnType); }
+
+        }
+
+        public bool IsDataProperty
+        {
+            get { return TypeFns.IsPredefinedType(ReturnType) || TypeFns.IsEnumType(ReturnType); }
+        }
+
+        public bool IsNavigationProperty
+        {
+            get { return !IsDataProperty; }
+        }
+
+        private static bool CouldBeSynteticProperty(string propertyName)
+        {
+            return propertyName.EndsWith("Id") || propertyName.EndsWith("Code");
+        }
+
+        // returns an IEnumerable<PropertyInfo> with nulls if invalid and throwOnError = true
+        public static IEnumerable<PropertyInfo> GetProperties(Type instanceType, String propertyPath, bool throwOnError = true)
+        {
+            var propertyNames = propertyPath.Split('.');
+
+            var nextInstanceType = instanceType;
+            foreach (var propertyName in propertyNames)
+            {
+                var property = GetProperty(nextInstanceType, propertyName, throwOnError);
+                if (property != null)
+                {
+                    yield return property;
+
+                    nextInstanceType = property.PropertyType;
+
+                    if ((property.Name.Length + 2 == propertyName.Length || property.Name.Length + 4 == propertyName.Length) && CouldBeSynteticProperty(propertyName))
+                    {
+                        // naive implementation for breeze generated syntetic properties
+                        if (property.Name != propertyName)
+                        {
+                            var nestedPropertyName = propertyName.Substring(property.Name.Length, propertyName.Length - property.Name.Length);
+                            nestedPropertyName = "Id"; //TODO: check if it can be anything else
+                            var nestedProperty = GetProperty(nextInstanceType, nestedPropertyName, throwOnError);
+
+                            yield return nestedProperty;
+
+                            nextInstanceType = nestedProperty.PropertyType;
+                        } 
+                    }
+                }
+                else
+                {
+                    break;
+                }
+            }
+        }
+
+        private static PropertyInfo GetProperty(Type instanceType, String propertyName, bool throwOnError = true)
+        {
+            var propertyInfo = (PropertyInfo)TypeFns.FindPropertyOrField(instanceType, propertyName, BindingFlags.Instance | BindingFlags.DeclaredOnly | BindingFlags.Public);
+            if (propertyInfo == null)
+            {
+                // naive implementation for breeze generated syntetic properties
+                if (CouldBeSynteticProperty(propertyName))
+                {
+                    var synteticPropertyName = propertyName.EndsWith("Id")
+                        ? propertyName.Substring(0, propertyName.Length - 2)
+                        : propertyName.Substring(0, propertyName.Length - 4);
+                    propertyInfo = (PropertyInfo)TypeFns.FindPropertyOrField(instanceType, synteticPropertyName, BindingFlags.Instance | BindingFlags.DeclaredOnly | BindingFlags.Public);
+                }
+
+                if (propertyInfo == null)
+                {
+                    if (throwOnError)
+                    {
+                        var msg = String.Format("Unable to locate property '{0}' on type '{1}'.", propertyName,
+                            instanceType);
+                        throw new Exception(msg);
+                    }
+                    else
+                    {
+                        return null;
+                    }
+                }
+            }
+            return propertyInfo;
+        }
+
+        public Expression BuildMemberExpression(ParameterExpression parmExpr)
+        {
+            Expression memberExpr = BuildPropertyExpression(parmExpr, Properties.First());
+            foreach (var property in Properties.Skip(1))
+            {
+                memberExpr = BuildPropertyExpression(memberExpr, property);
+            }
+            return memberExpr;
+        }
+
+        public Expression BuildPropertyExpression(Expression baseExpr, PropertyInfo property)
+        {
+            return Expression.Property(baseExpr, property);
+        }
+
+
+
     }
-
-    public Expression BuildMemberExpression(ParameterExpression parmExpr) {
-      Expression memberExpr = BuildPropertyExpression(parmExpr, Properties.First());
-      foreach (var property in Properties.Skip(1)) {
-        memberExpr = BuildPropertyExpression(memberExpr, property);
-      }
-      return memberExpr;
-    }
-
-    public Expression BuildPropertyExpression(Expression baseExpr, PropertyInfo property) {
-      return Expression.Property(baseExpr, property);
-    }
-
-
-
-  }
 
 
 }

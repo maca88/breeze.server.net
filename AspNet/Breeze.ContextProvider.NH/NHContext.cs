@@ -260,6 +260,10 @@ namespace Breeze.ContextProvider.NH {
       return _factoryMetadata.ContainsKey(session.SessionFactory);
     }
 
+    protected virtual void OnMetadataBuilt(MetadataSchema metadata)
+    {
+    }
+
     protected MetadataSchema GetMetadata() {
       if (_metadata == null) {
           lock (_metadataLock) {
@@ -268,6 +272,7 @@ namespace Breeze.ContextProvider.NH {
                   var builder = new NHMetadataBuilder(session.SessionFactory, breezeConfigurator);
                   _metadata = builder.BuildMetadata(TypeFilter);
                   _factoryMetadata.Add(session.SessionFactory, _metadata);
+                  OnMetadataBuilt(_metadata);
               }
           }
       }

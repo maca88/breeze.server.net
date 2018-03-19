@@ -95,10 +95,10 @@ namespace Breeze.ContextProvider.NH
                 throw new JsonSerializationException("Null collection of seralizable members returned.");
 
             var properties = new JsonPropertyCollection(type);
-
+            var modelConfiguration = _breezeConfigurator.GetModelConfiguration(type);
             foreach (var member in members)
             {
-                var property = CreateProperty(type, member, memberSerialization);
+                var property = CreateProperty(type, member, memberSerialization, modelConfiguration);
 
                 if (property != null)
                 {
@@ -238,10 +238,10 @@ namespace Breeze.ContextProvider.NH
         /// <param name="memberSerialization"></param>
         /// <param name="type"></param>
         /// <returns></returns>
-        protected JsonProperty CreateProperty(Type type, MemberInfo member, MemberSerialization memberSerialization)
+        protected JsonProperty CreateProperty(Type type, MemberInfo member, MemberSerialization memberSerialization, IModelConfiguration modelConfiguration)
         {
             var property = CreateProperty(member, memberSerialization);
-            SetShouldSerializeProperty(type, property, member);
+            SetShouldSerializeProperty(type, property, member, modelConfiguration);
             return property;
         }
 
@@ -313,15 +313,11 @@ namespace Breeze.ContextProvider.NH
             return NHibernateUtil.IsInitialized(propertyValue);
         }
 
-        private void SetShouldSerializeProperty(Type type, JsonProperty jsonProperty, MemberInfo member)
+        private void SetShouldSerializeProperty(Type type, JsonProperty jsonProperty, MemberInfo member, IModelConfiguration modelConfiguration)
         {
             if (type == null) 
                 return;
 
-            if (type.IsInterface)
-            {
-                
-            }
             //Skip if type is not an entity
             if (!_entitiesMetadata.ContainsKey(type))
                 return;
@@ -335,18 +331,26 @@ namespace Breeze.ContextProvider.NH
             //Skip properties that are not collection, association and lazy
             if (!propType.IsCollectionType && !propType.IsAssociationType && !lazyProp)
                 return;
+
+            modelConfiguration.MemberConfigurations.TryGetValue(member.Name, out var memberConfiguration);
+            var canLazyLoad = memberConfiguration?.LazyLoad == true;
             //Define and set the predicate for check property initialization
-            Predicate<object> predicate = entity =>
+            bool Predicate(object entity)
             {
+                if (canLazyLoad)
+                {
+                    return true;
+                }
                 if (!NHibernateUtil.IsPropertyInitialized(entity, member.Name))
                     return false;
                 var propertyValue = metadata.GetPropertyValue(entity, member.Name);
                 return NHibernateUtil.IsInitialized(propertyValue);
-            };
+            }
+
             if (jsonProperty.ShouldSerialize != null)
-                jsonProperty.ShouldSerialize = o => predicate(o) && jsonProperty.ShouldSerialize(o);
+                jsonProperty.ShouldSerialize = o => Predicate(o) && jsonProperty.ShouldSerialize(o);
             else
-                jsonProperty.ShouldSerialize = predicate;
+                jsonProperty.ShouldSerialize = Predicate;
         }
     }
 }

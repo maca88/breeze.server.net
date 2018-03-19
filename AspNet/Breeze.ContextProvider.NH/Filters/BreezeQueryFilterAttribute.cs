@@ -42,6 +42,8 @@ namespace Breeze.ContextProvider.NH.Filters
 
         public bool UseFuture { get; set; }
 
+        public bool CloseSession { get; set; } = true;
+
         /// <summary>
         /// Initialize the Breeze controller with a single <see cref="MediaTypeFormatter"/> for JSON
         /// and a single <see cref="IFilterProvider"/> for Breeze OData support
@@ -123,13 +125,16 @@ namespace Breeze.ContextProvider.NH.Filters
                 }
 
                 var qr = new QueryResult(listResult, inlineCountFuture?.Value ?? inlineCount);
-                
-                var session = GetSession(queryable);
-                if (session != null)
+
+                if (CloseSession)
                 {
-                    Close(session);
+                    var session = GetSession(queryable);
+                    if (session != null)
+                    {
+                        Close(session);
+                    }
                 }
-                
+
                 context.Response = context.Request.CreateResponse(HttpStatusCode.OK, qr);
             }
             
@@ -173,6 +178,10 @@ namespace Breeze.ContextProvider.NH.Filters
             if (!formatter.SerializerSettings.Converters.Any(o => o is NHibernateProxyJsonConverter))
                 jsonSerializer.Converters.Add(new NHibernateProxyJsonConverter());
             jsonSerializer.ContractResolver = (IContractResolver)configuration.DependencyResolver.GetService(typeof(NHibernateContractResolver));
+            // Setup save serializer
+            var saveJsonSerializer = BreezeConfig.Instance.GetJsonSerializerSettingsForSave();
+            saveJsonSerializer.ContractResolver = jsonSerializer.ContractResolver;
+
             /* Error handling is not needed anymore. NHibernateContractResolver will take care of non initialized properties*/
             //FIX: Still errors occurs
             jsonSerializer.Error = (sender, args) =>

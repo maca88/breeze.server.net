@@ -95,6 +95,7 @@ namespace Breeze.ContextProvider.NH
             mergedMember.SerializedName = member.SerializedName ?? mergedMember.SerializedName;
             mergedMember.MemberType = member.MemberType ?? mergedMember.MemberType;
             mergedMember.Order = member.Order ?? mergedMember.Order;
+            mergedMember.LazyLoad = member.LazyLoad ?? mergedMember.LazyLoad;
             return mergedMember;
         }
 
